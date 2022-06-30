@@ -1,7 +1,7 @@
 #ifndef SERVER_HPP
 # define SERVER_HPP
 
-# include "utils.hpp"
+# include "../response/Response.hpp"
 
 # define LISTEN_BUFFER_SIZE 1024
 # define READ_BUFFER_SIZE	1024
@@ -43,7 +43,7 @@ class Server
 			this->_listen.port = htons(listen.port);
 		}
 
-		int	init_server_socket(int port_number)
+		int	init_server_socket()
 		{//에러가 발생했을 때 에러 메시지를 출력하고 -1을 리턴, 정상 작동이면 0을 리턴
 		//server socket을 만들고, bind, listen, kqueue를 하고,
 		//바로 change_events를 통해 event를 등록한다.
@@ -55,10 +55,8 @@ class Server
 			}
 			std::memset(&this->_server_addr, 0, sizeof(this->_server_addr));
 			this->_server_addr.sin_family = AF_INET;
-			// this->_server_addr.sin_addr.s_addr = htonl(this->_listen.host);
-			this->_server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-			// this->_server_addr.sin_port = htons(this->_listen.port);
-			this->_server_addr.sin_port = htons(port_number);
+			this->_server_addr.sin_addr.s_addr = this->_listen.host;
+			this->_server_addr.sin_port = this->_listen.port;
 
 			if (bind(server_socket, (struct sockaddr*)&this->_server_addr,
 				sizeof(this->_server_addr)) == -1)
@@ -127,7 +125,8 @@ class Server
 			else if (this->_request.find(fd) != this->_request.end())
 			{//일단 1024만큼만 읽는다.
 				char	buf[READ_BUFFER_SIZE];
-				int		n = read(fd, buf, sizeof(buf));
+				// int		n = read(fd, buf, sizeof(buf));
+				int	n = ::recv(fd, buf, READ_BUFFER_SIZE - 1, 0);
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
 					if (n < 0)
@@ -138,8 +137,11 @@ class Server
 				{
 					buf[n] = '\0';
 					this->_request[fd] += buf;
-					this->file_content += get_file_content(buf);
 					std::cout << "received data from " << fd << ": " << this->_request[fd] << std::endl;
+					if (this->_response.verify_method(this->_request[fd], fd) == 1)
+					{
+						this->disconnect_request(fd);
+					}
 				}
 			}
 		}
@@ -152,19 +154,15 @@ class Server
 			{
 				if (this->_request[fd] != "")
 				{
-					if ((write_size = write(fd, this->file_content.c_str(),
-						this->file_content.size())) == -1)
-					// if ((write_size = write(fd, this->_request[fd].c_str(),
-					// 	this->_request[fd].size())) == -1)
+					if ((write_size = ::send(fd, this->_request[fd].c_str(),
+						this->_request[fd].size(), 0)) == -1)
 					{
 						std::cerr << "request write error" << std::endl;
 						disconnect_request(fd);
 					}
 					else
 					{
-						std::cout << "file content : " << this->file_content << std::endl;
 						this->_request[fd].clear();
-						this->file_content.clear();
 					}
 				}
 			}
@@ -221,6 +219,8 @@ class Server
 		struct kevent				_event_list[LISTEN_BUFFER_SIZE]; //이벤트가 발생한 kevent를 저장
 
 		std::string		file_content; //일단 get으로 file이 제대로 열리는 지 확인하는 용도
+
+		Response	_response; //response
 };
 
 #endif

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#define BUF_LEN 128
+#define BUF_LEN 1024
 
 int	main(int argc, char *argv[])
 {
@@ -67,7 +67,7 @@ int	main(int argc, char *argv[])
 			recv_len += recv_cnt;
 		}
 		buf[recv_len] = 0;
-		printf("Message from server\n%s", buf);
+		printf("Message from server\n%s\nmessage size : %d\n", buf, recv_len);
 	}
 	close(client_socket);
 }
