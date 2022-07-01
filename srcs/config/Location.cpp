@@ -1,6 +1,5 @@
 #include "./../../includes/Location.hpp"
 
-<<<<<<< HEAD
 Location::Location ()
 	: _block(),
 	_mod(NONE),
@@ -36,21 +35,12 @@ Location::Location (const Location &lb)
 	_autoindex(lb._autoindex),
 	_index(lb._index)
 {}
-=======
-Location::Location () : _mod(), _route() {}
-
-Location::Location (const Location &lb) {
-	_mod = lb._mod;
-	_route = lb._route;
-}
->>>>>>> ffde9148b2142388403fd100328b992929e0602e
 
 Location::~Location() {}
 
 Location	&Location::operator= (const Location &lb) {
 	_block = lb._block;
 	_mod = lb._mod;
-<<<<<<< HEAD
 	_match = lb._match;
 	_clntSize = lb._clntSize;
 	_methods = lb._methods;
@@ -58,14 +48,10 @@ Location	&Location::operator= (const Location &lb) {
 	_root = lb._root;
 	_autoindex = lb._autoindex;
 	_index = lb._index;
-=======
-	_route = lb._route;
->>>>>>> ffde9148b2142388403fd100328b992929e0602e
 
 	return (*this);
 }
 
-<<<<<<< HEAD
 // Location::getters
 std::string					Location::getBlock () { return (_block); }
 int							Location::getMod () { return (_mod); }
@@ -210,25 +196,3 @@ int							Location::parse () {
 
 	return (0);
 }
-=======
-std::string					Location::getBlock () { return (_block); }
-std::string					Location::getMod () { return (_mod); }
-std::string					Location::getRoute () { return (_route); }
-std::vector<std::string>	Location::getMethods () { return (_methods); }
-int							Location::getRedirect () { return (_redirect); }
-bool						Location::getDListing () { return (_dListing); }
-std::string					Location::getDefault () { return (_default); }
-
-void						Location::setBlock (std::string block) {}
-void						Location::setMod (std::string str) { _mod = str; }
-void						Location::setRoute (std::string str) { _route = str; }
-void						Location::setMethods (std::vector<std::string> methods) {}
-void						Location::setRedirect (int redirection) {}
-void						Location::setDListing (bool dListing) {}
-void						Location::setDefault (std::string file) {}
-
-int							Location::parseMethods () {}
-int							Location::parseDListing () {}
-int							Location::parseDefault () {}
-void						Location::parse () {}
->>>>>>> ffde9148b2142388403fd100328b992929e0602e

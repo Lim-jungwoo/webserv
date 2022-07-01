@@ -55,11 +55,12 @@ class Response
 			int					write_size;
 
 			std::cout << "GET METHOD PATH IS " << path << std::endl;
-			path[strlen(path.c_str()) - 1] = '\0';
+			path[strlen(path.c_str()) - 1] = '\0'; //parsing이 제대로 안 되었을 때 사용하는 것이므로, 필요 없다
 			file.open(path.c_str(), std::ifstream::in);
 			if (file.is_open() == false)
 			{
 				std::cout << "FILE OPEN ERROR\n";
+				this->_code = ErrorCode::Not_Found;
 				return (0);
 			}
 			buffer << file.rdbuf();
@@ -69,8 +70,10 @@ class Response
 				file_content.size(), 0)) == -1)
 			{
 				std::cerr << "GET METHOD SEND ERROR\n";
+				this->_code = ErrorCode::Internal_Server_error;
 				return (1);
 			}
+			this->_code = 200;
 			return (0);
 		}
 		int	postMethod(std::string& path, int fd) { return (0); }
@@ -105,7 +108,7 @@ class Response
 		}
 		int	deleteMethod(std::string& path, int fd)
 		{//일단 delete가 제대로 되지 않을 때는 생각하지 않고 무조건 0을 리턴하는 것으로 했다.
-			path[strlen(path.c_str()) - 1] = '\0';
+			path[strlen(path.c_str()) - 1] = '\0'; //일단 테스트용으로 한 거라 삭제해야 한다.
 			if (pathIsFile(path))
 			{
 				if (remove(path.c_str()) == 0)
@@ -134,8 +137,8 @@ class Response
 			return (0);
 		}
 
-	
 	private:
+		int	_code;
 };
 
 #endif
