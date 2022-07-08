@@ -52,7 +52,6 @@ LocationBlock	&LocationBlock::operator= (const LocationBlock &lb) {
 	return (*this);
 }
 
-// LocationBlock::getters
 std::string					LocationBlock::getBlock () const { return (_block); }
 int							LocationBlock::getMod () const { return (_mod); }
 std::string					LocationBlock::getURI () const { return (_uri); }
@@ -64,7 +63,6 @@ bool						LocationBlock::getAutoindex () const { return (_autoindex); }
 std::vector<std::string>	LocationBlock::getIndex () const { return (_index); }
 std::vector<LocationBlock>	LocationBlock::getLocationBlocks () const { return (_locations); }
 
-// LocationBlock::setters
 void						LocationBlock::setMod (int mod) { _mod = mod; }
 void						LocationBlock::setURI (std::string uri) { _uri = uri; }
 void						LocationBlock::setClntSize (int clntSize) { _clntSize = clntSize; }
@@ -75,7 +73,6 @@ void						LocationBlock::setAutoindex (bool autoindex) { _autoindex = autoindex;
 void						LocationBlock::setIndex (std::vector<std::string> index) { _index = index; }
 void						LocationBlock::addLocationBlock (LocationBlock lc) { _locations.push_back(lc); }
 
-// LocationBlock::parse_functions
 int							LocationBlock::parseModMatch () {
 	size_t	pos = 0, bracketPos = _block.find("{", 0);;
 	size_t	end = _block.find("\n", 0);
@@ -172,8 +169,6 @@ int							LocationBlock::parseIndex () {
 	std::string				index;
 	std::pair<bool, size_t>	res = skipKey(_block, "index");
 
-//	TODO: if (res.first == false)
-//		return (printErr("there is no default index page"));
 	if (res.first == false)
 		return (0);
 

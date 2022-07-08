@@ -8,6 +8,9 @@ Config::~Config () {}
 
 Config						&Config::operator= (Config &conf) { _server = conf._server; return (*this); }
 
+int							Config::checkServerBlocks () const {
+}
+
 void						Config::addServerBlock (ServerBlock serv) { _server.push_back(serv); }
 
 /* function that parses the configuration file */
@@ -28,10 +31,11 @@ int							Config::parse (std::string file) {
 		addServerBlock(ServerBlock(blocks[i]));
 		_server[i].parse();
 	}
+
+	checkServerBlocks();
 	return (0);
 }
 
-/* functions that finds the servers whose address/name match the request (TODO: CHECK) */ 
 std::vector<ServerBlock>	Config::findMatchingServerBlocks (std::string request, std::string *host, std::string *port) const {
 	std::vector<ServerBlock>	ret;
 	std::vector<std::string>	addr = split(request, ':');
@@ -49,7 +53,6 @@ std::vector<ServerBlock>	Config::findMatchingServerBlocks (std::string request, 
 	return (ret);
 }
 
-/* function that selects the appropriate server for the request (TODO: CHECK) */
 ServerBlock						Config::selectServerBlock (std::string request) const {
 	std::string					host, port;
 	std::vector<ServerBlock>	ret = findMatchingServerBlocks(request, &host, &port);

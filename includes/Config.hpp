@@ -15,6 +15,8 @@ class	Config {
 		Config						&operator= (Config &conf);
 
 		void						addServerBlock (ServerBlock serv);
+
+		int							checkServerBlocks () const;
 		int							parse (std::string file);
 
 		std::vector<ServerBlock>	findMatchingServerBlocks (std::string request, std::string *host, std::string *port) const;

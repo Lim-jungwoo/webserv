@@ -1,14 +1,13 @@
 #include "./../../includes/ServerBlock.hpp"
 
-// constructor, destructor, assignment operator overload
 ServerBlock::ServerBlock ()
-	: _block(),
-	_host("0.0.0.0"),
-	_port(),
-	_name("default_server"),
+	: _block(""),
+	_host(""),
+	_port(""),
+	_name(""),
 	_errPages(),
 	_clntSize(1024),
-	_root(),
+	_root(""),
 	_locations(),
 	_methods(),
 	_redirect(1),
@@ -18,12 +17,12 @@ ServerBlock::ServerBlock ()
 
 ServerBlock::ServerBlock (std::string block)
 	: _block(block),
-	_host(),
-	_port(),
-	_name("default_server"),
+	_host(""),
+	_port(""),
+	_name(""),
 	_errPages(),
 	_clntSize(1024),
-	_root(),
+	_root(""),
 	_locations(),
 	_methods(),
 	_redirect(1),
@@ -65,7 +64,6 @@ ServerBlock					&ServerBlock::operator= (const ServerBlock &srv) {
 	return (*this);
 }
 
-// ServerBlock::getters
 std::string					ServerBlock::getBlock() const { return (_block); }
 std::string					ServerBlock::getHost () const { return (_host); }
 std::string					ServerBlock::getPort () const { return (_port); }
@@ -79,7 +77,6 @@ int							ServerBlock::getRedirect () const { return (_redirect); }
 bool						ServerBlock::getAutoindex () const { return (_autoindex); }
 std::vector<std::string>	ServerBlock::getIndex () const { return (_index); }
 
-// ServerBlock::setters
 void						ServerBlock::setBlock(std::string block) { _block = block; }
 void						ServerBlock::setHost (std::string host) { _host = host; }
 void						ServerBlock::setPort (std::string port) { _port = port; }
@@ -93,14 +90,13 @@ void						ServerBlock::setRedirect (int redirect) { _redirect = redirect; }
 void						ServerBlock::setAutoindex (bool autoindex) { _autoindex = autoindex; }
 void						ServerBlock::setIndex (std::vector<std::string> index) { _index = index; }
 
-// ServerBlock::parse_functions
 int							ServerBlock::parseAddress () {
 	std::string					address;
 	std::vector<std::string>	addressVec;
 	std::pair<bool, size_t>		res = skipKey(_block, "listen");
 
 	if (res.first == false)
-		return (printErr("ServerBlock::parseAddress()"));
+		return (printErr("listen directive is missing"));
 
 	address = parseValue(_block, res.second);
 	addressVec = split(address, ':');
