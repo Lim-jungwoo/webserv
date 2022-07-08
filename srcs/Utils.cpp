@@ -135,6 +135,7 @@ std::string	intToStr(int code)
 {
 	std::stringstream	ret;
 	ret << code;
+
 	return (ret.str());
 }
 

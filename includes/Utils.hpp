@@ -12,7 +12,6 @@
 # define NONE			0
 # define EXACT			1
 # define PREFERENTIAL	2
-# define INVALID		3
 # define ON				1
 # define OFF			0
 

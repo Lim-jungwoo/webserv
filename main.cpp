@@ -8,15 +8,17 @@ int	main(int argc, char **argv) {
 
 	Config	conf;
 
-<<<<<<< HEAD
 	if (conf.parse(confFile))
 		return (printErr("invalid configuration file"));
-=======
 	conf.parse(confFile);
 
-	Server		srv = conf.selectServer("test.com");
-	Location	loc = srv.selectLocation();
+	ServerBlock		srv = conf.selectServerBlock("youpi");
+	std::cout << "SERVER: " << std::endl;
+	std::cout << "- server name: " << srv.getName() << std::endl;
 
-	std::cout << "server name: " << srv.getName() << std::endl;
->>>>>>> ffde9148b2142388403fd100328b992929e0602e
+	LocationBlock	loc = srv.selectLocationBlock("/bye");
+
+	std::cout << "LOCATION: " << std::endl;
+	std::cout << "- location uri: " << loc.getURI() << std::endl;
+
 }
