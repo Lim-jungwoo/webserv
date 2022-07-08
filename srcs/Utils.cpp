@@ -131,6 +131,13 @@ int							strToInt (std::string str) {
 	return (ret);
 }
 
+std::string	intToStr(int code)
+{
+	std::stringstream	ret;
+	ret << code;
+	return (ret.str());
+}
+
 unsigned int	host_to_int(std::string host)
 {
 	size_t	sep = 0;
@@ -143,7 +150,20 @@ unsigned int	host_to_int(std::string host)
 	for (int i = 3; i > -1; i--)
 	{
 		sep = host.find_first_of('.', sep);
-		substr = host.substr(start, sep);
+		if (i != 0 && sep == std::string::npos)
+		{
+			std::cerr << "host address has not .\n";
+			return (0);
+		}
+		if (i == 0)
+			sep = host.length();
+		substr = host.substr(start, sep - start);
+		// std::cout << "substr : " << substr << ", sep : " << sep << ", start : " << start << std::endl;
+		if (isNumber(substr) == 0)
+		{
+			std::cerr << "host address is not number\n";
+			return (0);
+		}
 		n = std::atoi(substr.c_str());
 		for (int j = 0; j < i; j++)
 			n *= 256;
@@ -251,3 +271,42 @@ int	set_error_page(const std::string& errPages, std::map<int, std::string>* errM
 	}
 	return (0);
 }
+
+void	print_vec(std::vector<std::string> str_vec)
+{
+	for (std::vector<std::string>::iterator it = str_vec.begin();
+		it != str_vec.end(); it++)
+	{
+		write(1, (*it).c_str(), (*it).length());
+		write(1, "\n", 1);
+	}
+}
+
+int	compare_end(const std::string& s1, const std::string& s2)
+{//s1의 끝부분에 s2가 있다면 0을 리턴, s2가 없다면 1을 리턴
+	size_t	s1_end = s1.size();
+	size_t	s2_end = s2.size();
+	while (s2_end > 0)
+	{
+		s1_end--; s2_end--;
+		if (s1_end < 0 || s1[s1_end] != s2[s2_end])
+			return (1);
+	}
+	return (0);
+}
+
+// int	main()
+// {
+// 	std::string	str = "r\n\r\n";
+// 	std::string	end = "\r\n\r\n";
+
+// 	if (compare_end(str, end) == 0)
+// 	{
+// 		std::cout << "str has end\n";
+// 	}
+// 	else
+// 	{
+// 		std::cout << "str has no end\n";
+// 	}
+// 	return (1);
+// }

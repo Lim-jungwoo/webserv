@@ -26,15 +26,16 @@ std::string					parseValue (std::string line, size_t pos);
 int							strToInt (std::string str);
 
 
-// #include <sys/types.h>
+#include <sys/types.h> //st_mtime
 #include <sys/event.h> //kevent
-// #include <sys/time.h>
+#include <sys/time.h> //timeval
 #include <sys/socket.h>
 #include <sys/stat.h> // struct stat
 #include <arpa/inet.h> //sockaddr_in
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h> //DIR
+#include <set>
 
 #include <limits> //numeric_limits
 
@@ -79,11 +80,26 @@ enum	ErrorCode
 	URI_Too_Long = 414, //클라이언트가 요청한 URI가 서버에서 처리하지 않기로 한 길이보다 길 때
 	Unsupported_Media_Type = 415, //요청한 미디어 포맷을 서버에서 지원하지 않을 때
 	Requested_Range_Not_Satisfiable = 416, //Range 헤더 필드에 요청한 지정 범위를 만족시킬 수 없을 때
+	Too_Many_Requests = 429, //user가 주어진 시간 내에서 너무 많은 request를 보냈을 때
 	Request_Header_Fields_Too_Large = 431, //요청한 헤더 필드가 너무 클 때
 	Bad_Gateway = 502, //서버가 요청을 처리하는 데 필요한 응답을 얻기 위해 게이트웨이로 작업하는 동안 잘못된 응답을 수신했을 때
 	Service_Unavailable = 503, //서버가 요청을 처리할 준비가 되지 않았을 때
 	HTTP_Version_Not_Supported = 505 //요청에 사용된 HTTP 버전을 서버에서 지원하지 않을 때
 };
+
+enum	BodyExist
+{
+	No_Body = 0,
+	Body_Exist = 1,
+	Body_Start = 2,
+	Body_End = 3
+};
+
+typedef struct s_listen
+{
+	unsigned int	host;
+	int				port;
+}	t_listen;
 
 
 unsigned int	host_to_int(std::string host);
@@ -108,5 +124,11 @@ std::string	set_html(const std::string& path, const std::string& lang,
 //config server.cpp의 parseErrPages에 집어넣으면 될 듯?
 //string형인 errPages를 받아와서, errMap의 key값에 error_code, value값에 html을 넣어준다.
 int	set_error_page(const std::string& errPages, std::map<int, std::string>* errMap);
+
+std::string	intToStr(int code);
+
+void	print_vec(std::vector<std::string> str_vec);
+
+int	compare_end(const std::string& s1, const std::string& s2);
 
 #endif

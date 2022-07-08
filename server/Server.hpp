@@ -6,12 +6,6 @@
 # define LISTEN_BUFFER_SIZE 1024
 # define READ_BUFFER_SIZE	1024
 
-typedef struct s_listen
-{
-	unsigned int	host;
-	int				port;
-}	t_listen;
-
 class Server
 {
 	public:
@@ -37,14 +31,20 @@ class Server
 			this->_request.erase(request_fd);
 		}
 
-		void	init_listen(t_listen listen)
+		int	init_listen(const std::string& host_port)
 		{
-			this->_listen.host = htonl(listen.host);
-			this->_listen.port = htons(listen.port);
+			if (this->_request_header.set_listen(host_port) == 1)
+			{
+				std::cerr << "init listen error\n";
+				return (1);
+			}
+			this->_listen.host = this->_request_header._listen.host;
+			this->_listen.port = this->_request_header._listen.port;
+			return (0);
 		}
 
 		int	init_server_socket()
-		{//에러가 발생했을 때 에러 메시지를 출력하고 -1을 리턴, 정상 작동이면 0을 리턴
+		{//에러가 발생했을 때 에러 메시지를 출력하고 1을 리턴, 정상 작동이면 0을 리턴
 		//server socket을 만들고, bind, listen, kqueue를 하고,
 		//바로 change_events를 통해 event를 등록한다.
 			int	server_socket = socket(PF_INET, SOCK_STREAM, 0);
@@ -57,7 +57,7 @@ class Server
 			this->_server_addr.sin_family = AF_INET;
 			this->_server_addr.sin_addr.s_addr = this->_listen.host;
 			this->_server_addr.sin_port = this->_listen.port;
-
+			std::cout << "host : " << this->_listen.host << ", port : " << this->_listen.port << std::endl;
 			if (bind(server_socket, (struct sockaddr*)&this->_server_addr,
 				sizeof(this->_server_addr)) == -1)
 			{
@@ -69,7 +69,7 @@ class Server
 				std::cerr << "listen socket error\n";
 				return (1);
 			}
-			fcntl(server_socket, F_SETFL, O_NONBLOCK);
+			// fcntl(server_socket, F_SETFL, O_NONBLOCK);
 			this->_server_socket = server_socket;
 
 			int	kq = kqueue();
@@ -86,7 +86,8 @@ class Server
 
 		int	event_error(int fd)
 		{
-			if (fd == static_cast<uintptr_t>(this->_server_socket))
+			if (fd == this->_server_socket)
+			// if (fd == static_cast<uintptr_t>(this->_server_socket))
 			{//server_socket이 에러라면 server를 종료하기 위해 -1을 리턴한다.
 				std::cerr << "server start but server socket error\n";
 				return (1);
@@ -115,33 +116,77 @@ class Server
 			this->_request[request_socket] = "";
 		}
 
-		void	event_read(int fd)
+		void	event_read(int fd, int* body_exist)
 		{//fd에 맞게 실행된다.
 		//저장되어있는 request에 맞는 fd가 없다면 아무 행동도 하지 않는다.
-			if (fd == static_cast<uintptr_t>(this->_server_socket))
+			int	request_end = 0;
+			if (fd == this->_server_socket)
+			// if (fd == static_cast<uintptr_t>(this->_server_socket))
 			{//read event인데 server socket일 때는 accept이라는 뜻이므로 request_accept을 실행
 				request_accept();
 			}
 			else if (this->_request.find(fd) != this->_request.end())
 			{//일단 1024만큼만 읽는다.
 				char	buf[READ_BUFFER_SIZE];
-				// int		n = read(fd, buf, sizeof(buf));
-				int	n = ::recv(fd, buf, READ_BUFFER_SIZE - 1, 0);
+				int	n;
+				n = ::recv(fd, buf, READ_BUFFER_SIZE - 1, 0);
+				buf[n] = '\0';
+				this->_request[fd] += buf;
+				
+				if (*body_exist == Body_Start && compare_end(this->_request[fd], "\r\n") == 0)
+				{
+					*body_exist = Body_End;
+				}
+				if ((strncmp(this->_request[fd].c_str(), "POST", 4) == 0 ||
+					strncmp(this->_request[fd].c_str(), "PUT", 3) == 0) && *body_exist == No_Body)
+				{
+					*body_exist = Body_Exist;
+				}
+				if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
+					&& *body_exist == No_Body) 
+				{
+					request_end = 1;
+				}
+				else if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
+					&& *body_exist != Body_End)
+				{
+					*body_exist = Body_Start;
+				}
+				else
+				{
+					std::cout << "request : " << this->_request[fd] << std::endl;
+					std::cout << "compare_end fail\n";
+				}
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
 					if (n < 0)
 						std::cerr << "request read error\n";
+					this->_request[fd].clear();
 					disconnect_request(fd);
 				}
-				else
+				else if (request_end == 1 || *body_exist == Body_End)
 				{
-					buf[n] = '\0';
-					this->_request[fd] += buf;
 					std::cout << "received data from " << fd << ": " << this->_request[fd] << std::endl;
-					if (this->_response.verify_method(this->_request[fd], fd) == 1)
+					if (this->_request_header.request_split(this->_request[fd]) == 1)
 					{
-						this->disconnect_request(fd);
+						std::cerr << "request split error\n";
 					}
+					else if (this->_request_header._method == "GET")
+					{
+						this->_response.getMethod(this->_request_header._path, fd);
+					}
+					else if (this->_request_header._method == "PUT")
+					{
+						this->_response.putMethod(this->_request_header._path, fd, this->_request_header._body);
+					}
+					else if (this->_request_header._method == "DELETE")
+					{
+						this->_response.deleteMethod(this->_request_header._path, fd);
+					}
+					this->_request[fd].clear();
+					sleep(1);
+					::send(fd, "end", 3, 0);
+					*body_exist = No_Body;
 				}
 			}
 		}
@@ -152,19 +197,28 @@ class Server
 			int										write_size;
 			if (it != this->_request.end())
 			{
-				if (this->_request[fd] != "")
-				{
-					if ((write_size = ::send(fd, this->_request[fd].c_str(),
-						this->_request[fd].size(), 0)) == -1)
-					{
-						std::cerr << "request write error" << std::endl;
-						disconnect_request(fd);
-					}
-					else
-					{
-						this->_request[fd].clear();
-					}
-				}
+				(void)write_size;
+				// this->_request[fd].clear();
+				// sleep(2);
+				// ::send(fd, "end", 3, 0);
+				// if (this->_request[fd] != "")
+				// {
+				// 	if 
+				// }
+				//받은 메시지를 그대로 보냄
+				// if (this->_request[fd] != "")
+				// {
+				// 	if ((write_size = ::send(fd, this->_request[fd].c_str(),
+				// 		this->_request[fd].size(), 0)) == -1)
+				// 	{
+				// 		std::cerr << "request write error" << std::endl;
+				// 		disconnect_request(fd);
+				// 	}
+				// 	else
+				// 	{
+				// 		this->_request[fd].clear();
+				// 	}
+				// }
 			}
 		}
 
@@ -172,6 +226,9 @@ class Server
 		{
 			int				new_events;
 			struct kevent*	curr_event;
+			int	body_pass = 0;
+			if (this->init_server_socket() == 1)
+				return (1);
 			while (1)
 			{
 				new_events = kevent(this->_kq, &this->_change_list[0], this->_change_list.size(),
@@ -197,7 +254,7 @@ class Server
 					else if (curr_event->filter == EVFILT_READ)
 					{//curr_event가 read일 때
 						// write(1, "read", 4);
-						event_read(curr_event->ident);
+						event_read(curr_event->ident, &body_pass);
 					}
 					else if (curr_event->filter == EVFILT_WRITE)
 					{
@@ -217,6 +274,7 @@ class Server
 		std::map<int, std::string>	_request; //request의 socket과 socket의 내용을 저장
 		std::vector<struct kevent>	_change_list; //kevent를 모두 저장
 		struct kevent				_event_list[LISTEN_BUFFER_SIZE]; //이벤트가 발생한 kevent를 저장
+		RequestHeader				_request_header;
 
 		std::string		file_content; //일단 get으로 file이 제대로 열리는 지 확인하는 용도
 

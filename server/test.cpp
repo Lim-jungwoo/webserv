@@ -1,18 +1,21 @@
-#include <string>
-#include <cstdlib>
-#include <limits>
-#include <iostream>
+// #include "../header/RequestHeader.hpp"
 
-#include <vector>
+# include <cstdlib>
+# include <iostream>
 
-#include <sys/stat.h>
-
-#include "../cgi/cgi.hpp"
-
-int	main(int argc, char** argv)
+int	main()
 {
-	Cgi	cgi;
-
-	cgi.initEnv();
-	cgi.print_env();
+	std::string	str = "1.9.17.9";
+	size_t	sep = 0;
+	std::string	substr;
+	size_t	start = 0;
+	for (int i = 3; i > -1; i--)
+	{
+		sep = str.find_first_of('.', sep);
+		substr = str.substr(start, sep - start);
+		std::cout << "start : " << start << ", sep : " << sep;
+		std::cout << ", substr : " << substr << std::endl;
+		sep++;
+		start = sep;
+	}
 }

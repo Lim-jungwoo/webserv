@@ -1,7 +1,7 @@
 #ifndef RESPONSEHEADER_HPP
 # define RESPONSEHEADER_HPP
 
-#include "../server/utils.hpp"
+#include "../includes/Utils.hpp"
 
 class ResponseHeader
 {
@@ -11,19 +11,6 @@ class ResponseHeader
 		virtual ~ResponseHeader() {}
 
 		ResponseHeader&	operator=(const ResponseHeader& response_header) { return (*this); }
-
-		void	initErrorMap()
-		{
-			this->_error_map[ErrorCode::Continue] = "Continue";
-			this->_error_map[ErrorCode::OK] = "OK";
-			this->_error_map[ErrorCode::Created] = "Created";
-			this->_error_map[ErrorCode::No_Content] = "No Content";
-			this->_error_map[ErrorCode::Bad_Request] = "Bad Request";
-			this->_error_map[ErrorCode::Forbidden] = "Forbidden";
-			this->_error_map[ErrorCode::Not_Found] = "Not Found";
-			this->_error_map[ErrorCode::Payload_Too_Large] = "Payload Too Large";
-			this->_error_map[ErrorCode::Internal_Server_error] = "Internal Server Error";
-		}
 
 	private:
 		std::map<int, std::string>	_error_map;
