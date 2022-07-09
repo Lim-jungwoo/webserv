@@ -28,34 +28,31 @@ std::vector<std::string>	split (std::string str, char delimiter) {
 }
 
 /* function that splits a config file into server blocks. */
-std::vector<std::string>	splitServerBlocks (std::string block) {
+std::vector<std::string>	splitBlocks (std::string block, std::string type) {
+//std::vector<std::string>	splitServerBlocks (std::string block) {
 	std::vector<std::string>	ret;
-	int							locBlockCount = 0;					// counts location blocks
-	size_t						pos = 0, blockPos = 0, locPos = 0;	// blockPos = position of "server", locPos = position of "location"
-	size_t						nextBlockPos = 0;					// position of next "server"
+	size_t						startPos = 0, endPos = 0;
 
-	while (1) {
-		blockPos = block.find("server ", pos) + 6;
-		pos = blockPos;
-		nextBlockPos = block.find("server ", pos);
-		while (std::isspace(block[pos]))
-			pos++;
-		if (block[pos] != '{')
-			return (ret);
-
-		locPos = block.find("location", pos);
-		while (locPos != std::string::npos && locPos < nextBlockPos) {
-			locPos = block.find("location", locPos + 1);
-			locBlockCount++;
+	while (block.find(type, startPos) != std::string::npos) {
+		startPos = block.find(type, startPos) + type.length() - 1;
+//	while (block.find("server ", startPos) != std::string::npos) {
+//		startPos = block.find("server ", startPos) + 6;
+		while (std::isspace(block[startPos]))
+			startPos++;
+		if (block[startPos] == '{')
+			startPos++;
+		endPos = startPos;
+		while (block[endPos] != '}') {
+			if (block[endPos] == '{') {
+				while (block[endPos] != '}')
+					endPos++;
+				endPos++;
+			}
+			endPos++;
 		}
-		// skips the counted location blocks
-		while (locBlockCount) {
-			pos = block.find("}", pos) + 1;
-			locBlockCount--;
-		}
-		pos += 2;
-		ret.push_back(block.substr(blockPos, pos - blockPos));
+		ret.push_back(block.substr(startPos, endPos - startPos));
 	}
+
 	return (ret);
 }
 
@@ -131,12 +128,22 @@ int							strToInt (std::string str) {
 	return (ret);
 }
 
-std::string	intToStr(int code)
+std::string	intToStr (int code)
 {
 	std::stringstream	ret;
 	ret << code;
 
 	return (ret.str());
+}
+
+int			MiBToBits (std::string size) {
+	if (!isNumber(size.substr(0, size.size() - 1)))
+		return (-1);
+
+	if (size[size.size() - 1] != 'm')
+		return (-1);
+
+	return (strToInt(size.substr(0, size.size() - 1)) * 8388608);
 }
 
 unsigned int	host_to_int(std::string host)

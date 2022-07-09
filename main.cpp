@@ -20,5 +20,4 @@ int	main(int argc, char **argv) {
 
 	std::cout << "LOCATION: " << std::endl;
 	std::cout << "- location uri: " << loc.getURI() << std::endl;
-
 }

@@ -17,12 +17,14 @@
 
 int							printErr (std::string errMsg);
 std::vector<std::string>	split (std::string str, char delimiter = '\n');
-std::vector<std::string>	splitServerBlocks (std::string block);
+std::vector<std::string>	splitBlocks (std::string block, std::string type);
+//std::vector<std::string>	splitServerBlocks (std::string block);
 std::vector<std::string>	splitLocationBlocks (std::string block);
 std::pair<bool, size_t>		skipKey (std::string line, std::string str);
 bool						isNumber (std::string str);
 std::string					parseValue (std::string line, size_t pos);
 int							strToInt (std::string str);
+int							MiBToBits (std::string size);
 
 
 #include <sys/types.h> //st_mtime

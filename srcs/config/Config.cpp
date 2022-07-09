@@ -9,6 +9,7 @@ Config::~Config () {}
 Config						&Config::operator= (Config &conf) { _server = conf._server; return (*this); }
 
 int							Config::checkServerBlocks () const {
+	return (1);
 }
 
 void						Config::addServerBlock (ServerBlock serv) { _server.push_back(serv); }
@@ -26,7 +27,9 @@ int							Config::parse (std::string file) {
 	ss << f.rdbuf();
 	buf = ss.str();
 
-	blocks = splitServerBlocks(buf);
+	blocks = splitBlocks(buf, "server ");
+//	blocks = splitServerBlocks(buf);
+
 	for (size_t i = 0; i < blocks.size(); i++) {
 		addServerBlock(ServerBlock(blocks[i]));
 		_server[i].parse();

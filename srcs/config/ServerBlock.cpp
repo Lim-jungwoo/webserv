@@ -2,12 +2,13 @@
 
 ServerBlock::ServerBlock ()
 	: _block(""),
-	_host(""),
-	_port(""),
+	_host("*"),
+	_port("80"),
+	_default(false),
 	_name(""),
 	_errPages(),
-	_clntSize(1024),
-	_root(""),
+	_clntSize(MiBToBits("1m")),
+	_root("html"),
 	_locations(),
 	_methods(),
 	_redirect(1),
@@ -17,12 +18,13 @@ ServerBlock::ServerBlock ()
 
 ServerBlock::ServerBlock (std::string block)
 	: _block(block),
-	_host(""),
-	_port(""),
+	_host("*"),
+	_port("80"),
+	_default(false),
 	_name(""),
 	_errPages(),
-	_clntSize(1024),
-	_root(""),
+	_clntSize(MiBToBits("1m")),
+	_root("html"),
 	_locations(),
 	_methods(),
 	_redirect(1),
@@ -34,6 +36,7 @@ ServerBlock::ServerBlock (const ServerBlock &srv)
 	: _block(srv._block),
 	_host(srv._host),
 	_port(srv._port),
+	_default(srv._default),
 	_name(srv._name),
 	_errPages(srv._errPages),
 	_clntSize(srv._clntSize),
@@ -51,6 +54,7 @@ ServerBlock					&ServerBlock::operator= (const ServerBlock &srv) {
 	_block = srv._block;
 	_host = srv._host;
 	_port = srv._port;
+	_default = srv._default;
 	_name = srv._name;
 	_errPages = srv._errPages;
 	_clntSize = srv._clntSize;
@@ -67,6 +71,7 @@ ServerBlock					&ServerBlock::operator= (const ServerBlock &srv) {
 std::string					ServerBlock::getBlock() const { return (_block); }
 std::string					ServerBlock::getHost () const { return (_host); }
 std::string					ServerBlock::getPort () const { return (_port); }
+bool						ServerBlock::getDefault () const { return (_default); }
 std::string					ServerBlock::getName () const { return (_name); }
 std::vector<std::string>	ServerBlock::getErrPages () const { return (_errPages); }
 int							ServerBlock::getClntSize () const { return (_clntSize); }
@@ -80,6 +85,7 @@ std::vector<std::string>	ServerBlock::getIndex () const { return (_index); }
 void						ServerBlock::setBlock(std::string block) { _block = block; }
 void						ServerBlock::setHost (std::string host) { _host = host; }
 void						ServerBlock::setPort (std::string port) { _port = port; }
+void						ServerBlock::setDefault (bool dflt) { _default = dflt; }
 void						ServerBlock::setName (std::string name) { _name = name; }
 void						ServerBlock::setErrPages (std::vector<std::string> pages) { _errPages = pages; }
 void						ServerBlock::setClntSize (int size) { _clntSize = size; }
@@ -96,41 +102,51 @@ int							ServerBlock::parseAddress () {
 	std::pair<bool, size_t>		res = skipKey(_block, "listen");
 
 	if (res.first == false)
-		return (printErr("listen directive is missing"));
+		return (0);
 
 	address = parseValue(_block, res.second);
-	addressVec = split(address, ':');
+	if (address.find(" ", 0) != std::string::npos) {
+		addressVec = split(address, ' ');
+		if (addressVec.size() > 2)
+			return (printErr("wrong address field"));
+		if (addressVec[1] == "default_server")
+			_default = true;
+	}
+	addressVec = split(addressVec[0], ':');
 
 	if (addressVec.size() == 1) {
-		if (address.find(".", 0) == std::string::npos) {
-			setHost("0.0.0.0");
-			setPort(address);
-		}
-		else {
-			setHost(address);
-			setPort("80");
-		}
+		if (addressVec[0].find(".", 0) == std::string::npos)
+			setPort(addressVec[0]);
+		else
+			setHost(addressVec[0]);
 	}
 	else if (addressVec.size() == 2) {
 		setHost(addressVec[0]);
 		setPort(addressVec[1]);
 	}
-	else return (printErr("ServerBlock::parseAddress()"));
+	else
+		return (printErr("in ServerBlock::parseAddress()"));
 
 	return (0);
 }
 
 int							ServerBlock::parseName () {
+	std::string				names;
 	std::pair<bool, size_t>	res = skipKey(_block, "server_name");
 
-	setName(parseValue(_block, res.second));
+	if (res.first == false)
+		return (0);
+
+	names = parseValue(_block, res.second);
+
+	setName(split(names, ' ')[0]);
 
 	return (0);
 }
 
 int							ServerBlock::parseErrPages () {
-	std::string					errPages;
-	std::pair<bool, size_t>		res = skipKey(_block, "error_page");
+	std::string				errPages;
+	std::pair<bool, size_t>	res = skipKey(_block, "error_page");
 
 	if (res.first == false)
 		return (0);
@@ -142,13 +158,13 @@ int							ServerBlock::parseErrPages () {
 }
 
 int							ServerBlock::parseClntSize () {
-	std::pair<bool, size_t>	res = skipKey(_block, "client_body_size");
+	std::pair<bool, size_t>	res = skipKey(_block, "client_max_body_size");
 	int						clntSize;
 
 	if (res.first == false)
 		return (0);
 
-	clntSize = strToInt(parseValue(_block, res.second));;
+	clntSize = MiBToBits(parseValue(_block, res.second));
 
 	if (clntSize < 0)
 		return (printErr("size should be positive"));
@@ -162,7 +178,7 @@ int							ServerBlock::parseRoot () {
 	std::pair<bool, size_t>	res = skipKey(_block, "root");
 
 	if (res.first == false)
-		return (printErr("there is no root"));
+		return (0);
 
 	setRoot(parseValue(_block, res.second));
 
@@ -171,16 +187,16 @@ int							ServerBlock::parseRoot () {
 
 int							ServerBlock::parseMethods () {
 	std::string				methods;
-	std::pair<bool, size_t>	res = skipKey(_block, "allow_methods");
+	std::pair<bool, size_t>	res = skipKey(_block, "limit_except");
 
 	if (res.first == false)
-		return (printErr("there are no methods"));
+		return (0);
 
 	methods = parseValue(_block, res.second);
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
-		return (printErr("there are no methods"));
+		return (0);
 
 	for (size_t i = 0; i < _methods.size(); i++) {
 		if (_methods[i] != "GET" && _methods[i] != "POST" && _methods[i] != "DELETE")
@@ -208,11 +224,15 @@ int							ServerBlock::parseAutoindex () {
 }
 
 int							ServerBlock::parseIndex () {
-	std::string					index;
-	std::pair<bool, size_t>		res = skipKey(_block, "index");
+	std::string				index;
+	std::pair<bool, size_t>	res = skipKey(_block, "index");
 
-	if (res.first == false)
-		return (printErr("there is no default index page"));
+	if (res.first == false) {
+		std::vector<std::string>	idx;
+		idx.push_back("index.html");
+		setIndex(idx);
+		return (0);
+	}
 
 	index = parseValue(_block, res.second);
 	setIndex(split(index, ' '));
@@ -221,12 +241,14 @@ int							ServerBlock::parseIndex () {
 }
 
 int							ServerBlock::parse () {
-	std::vector<std::string>	locBlocks = splitLocationBlocks(_block);
+/*	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
+//	std::vector<std::string>	locBlocks = splitLocationBlocks(_block);
 
 	for (size_t i = 0; i < locBlocks.size(); i++) {
+		std::cout << "location block: " << locBlocks[i] << std::endl;
 		addLocationBlock(LocationBlock(locBlocks[i]));
 		_locations[i].parse();
-	}
+	}*/
 
 	parseAddress();
 	parseName();

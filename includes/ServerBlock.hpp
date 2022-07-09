@@ -9,6 +9,7 @@ class	ServerBlock {
 		std::string					_block;
 		std::string					_host;
 		std::string					_port;
+		bool						_default;
 		std::string					_name;
 		std::vector<std::string>	_errPages;
 		int							_clntSize;
@@ -31,6 +32,7 @@ class	ServerBlock {
 		std::string					getBlock () const;
 		std::string					getHost () const;
 		std::string					getPort () const;
+		bool						getDefault () const;
 		std::string					getName () const;
 		std::vector<std::string>	getErrPages () const;
 		int							getClntSize () const;
@@ -45,6 +47,7 @@ class	ServerBlock {
 		void						setBlock (std::string block);
 		void						setHost (std::string host);
 		void						setPort (std::string port);
+		void						setDefault (bool dflt);
 		void						setName (std::string name);
 		void						setErrPages (std::vector<std::string> pages);
 		void						setClntSize (int size);
