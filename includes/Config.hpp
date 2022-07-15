@@ -14,14 +14,11 @@ class	Config {
 		~Config ();
 		Config						&operator= (Config &conf);
 
+		std::vector<ServerBlock>	getServerBlocks ();
+
 		void						addServerBlock (ServerBlock serv);
 
-		int							checkServerBlocks () const;
 		int							parse (std::string file);
-
-		std::vector<ServerBlock>	findMatchingServerBlocks (std::string request, std::string *host, std::string *port) const;
-		ServerBlock					selectServerBlock (std::string request) const;
-
 };
 
 #endif

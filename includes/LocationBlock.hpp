@@ -15,6 +15,7 @@ class	LocationBlock {
 		std::string					_root;
 		bool						_autoindex;
 		std::vector<std::string>	_index;
+		std::string					_cgi;
 		std::vector<LocationBlock>	_locations;
 
 	public:
@@ -35,6 +36,7 @@ class	LocationBlock {
 		std::string					getRoot () const;
 		bool						getAutoindex () const;
 		std::vector<std::string>	getIndex () const;
+		std::string					getCGI () const;
 		std::vector<LocationBlock>	getLocationBlocks () const;
 
 		// setter
@@ -46,6 +48,7 @@ class	LocationBlock {
 		void						setRoot (std::string root);
 		void						setAutoindex (bool autoindex);
 		void						setIndex (std::vector<std::string> index);
+		void						setCGI (std::string cgi);
 		void						addLocationBlock (LocationBlock lc);
 
 		// parse
@@ -55,6 +58,7 @@ class	LocationBlock {
 		int							parseRoot ();
 		int							parseAutoindex ();
 		int							parseIndex ();
+		int							parseCGI ();
 
 		int							parse ();
 };

@@ -99,20 +99,22 @@ void						ServerBlock::setIndex (std::vector<std::string> index) { _index = inde
 int							ServerBlock::parseAddress () {
 	std::string					address;
 	std::vector<std::string>	addressVec;
-	std::pair<bool, size_t>		res = skipKey(_block, "listen");
+	std::pair<bool, size_t>		res = skipKey(_block, "listen", ";");
 
 	if (res.first == false)
 		return (0);
 
-	address = parseValue(_block, res.second);
+	address = parseValue(_block, res.second, ";");
 	if (address.find(" ", 0) != std::string::npos) {
 		addressVec = split(address, ' ');
 		if (addressVec.size() > 2)
-			return (printErr("wrong address field"));
+			return (printErr("wrong syntax in listen directive"));
 		if (addressVec[1] == "default_server")
 			_default = true;
+		addressVec = split(addressVec[0], ':');
 	}
-	addressVec = split(addressVec[0], ':');
+	else
+		addressVec = split(address, ':');
 
 	if (addressVec.size() == 1) {
 		if (addressVec[0].find(".", 0) == std::string::npos)
@@ -125,19 +127,19 @@ int							ServerBlock::parseAddress () {
 		setPort(addressVec[1]);
 	}
 	else
-		return (printErr("in ServerBlock::parseAddress()"));
+		return (printErr("wrong syntax in listen directive"));
 
 	return (0);
 }
 
 int							ServerBlock::parseName () {
 	std::string				names;
-	std::pair<bool, size_t>	res = skipKey(_block, "server_name");
+	std::pair<bool, size_t>	res = skipKey(_block, "server_name", ";");
 
 	if (res.first == false)
 		return (0);
 
-	names = parseValue(_block, res.second);
+	names = parseValue(_block, res.second, ";");
 
 	setName(split(names, ' ')[0]);
 
@@ -146,28 +148,28 @@ int							ServerBlock::parseName () {
 
 int							ServerBlock::parseErrPages () {
 	std::string				errPages;
-	std::pair<bool, size_t>	res = skipKey(_block, "error_page");
+	std::pair<bool, size_t>	res = skipKey(_block, "error_page", ";");
 
 	if (res.first == false)
 		return (0);
 
-	errPages = parseValue(_block, res.second);
+	errPages = parseValue(_block, res.second, ";");
 	setErrPages(split(errPages, ' '));
 
 	return (0);
 }
 
 int							ServerBlock::parseClntSize () {
-	std::pair<bool, size_t>	res = skipKey(_block, "client_max_body_size");
+	std::pair<bool, size_t>	res = skipKey(_block, "client_max_body_size", ";");
 	int						clntSize;
 
 	if (res.first == false)
 		return (0);
 
-	clntSize = MiBToBits(parseValue(_block, res.second));
+	clntSize = MiBToBits(parseValue(_block, res.second, ";"));
 
 	if (clntSize < 0)
-		return (printErr("size should be positive"));
+		return (printErr("wrong client max body size (should be positive)"));
 
 	setClntSize(clntSize);
 
@@ -175,24 +177,24 @@ int							ServerBlock::parseClntSize () {
 }
 
 int							ServerBlock::parseRoot () {
-	std::pair<bool, size_t>	res = skipKey(_block, "root");
+	std::pair<bool, size_t>	res = skipKey(_block, "root", ";");
 
 	if (res.first == false)
 		return (0);
 
-	setRoot(parseValue(_block, res.second));
+	setRoot(parseValue(_block, res.second, ";"));
 
 	return (0);
 }
 
 int							ServerBlock::parseMethods () {
 	std::string				methods;
-	std::pair<bool, size_t>	res = skipKey(_block, "limit_except");
+	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{");
 
 	if (res.first == false)
 		return (0);
 
-	methods = parseValue(_block, res.second);
+	methods = parseValue(_block, res.second, "{");
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
@@ -200,7 +202,7 @@ int							ServerBlock::parseMethods () {
 
 	for (size_t i = 0; i < _methods.size(); i++) {
 		if (_methods[i] != "GET" && _methods[i] != "POST" && _methods[i] != "DELETE")
-			return (printErr("invalid method"));
+			return (printErr("wrong method (GET, POST, DELETE)"));
 	}
 
 	return (0);
@@ -208,12 +210,12 @@ int							ServerBlock::parseMethods () {
 
 int							ServerBlock::parseAutoindex () {
 	std::string				is;
-	std::pair<bool, size_t>	res = skipKey(_block, "autoindex");
+	std::pair<bool, size_t>	res = skipKey(_block, "autoindex", ";");
 
 	if (res.first == false)
 		return (0);
 
-	is = parseValue(_block, res.second);
+	is = parseValue(_block, res.second, ";");
 
 	if (is == "on")
 		setAutoindex(ON);
@@ -225,7 +227,7 @@ int							ServerBlock::parseAutoindex () {
 
 int							ServerBlock::parseIndex () {
 	std::string				index;
-	std::pair<bool, size_t>	res = skipKey(_block, "index");
+	std::pair<bool, size_t>	res = skipKey(_block, "index", ";");
 
 	if (res.first == false) {
 		std::vector<std::string>	idx;
@@ -234,21 +236,19 @@ int							ServerBlock::parseIndex () {
 		return (0);
 	}
 
-	index = parseValue(_block, res.second);
+	index = parseValue(_block, res.second, ";");
 	setIndex(split(index, ' '));
 
 	return (0);
 }
 
 int							ServerBlock::parse () {
-/*	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
-//	std::vector<std::string>	locBlocks = splitLocationBlocks(_block);
+	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
 
 	for (size_t i = 0; i < locBlocks.size(); i++) {
-		std::cout << "location block: " << locBlocks[i] << std::endl;
 		addLocationBlock(LocationBlock(locBlocks[i]));
 		_locations[i].parse();
-	}*/
+	}
 
 	parseAddress();
 	parseName();
@@ -258,6 +258,7 @@ int							ServerBlock::parse () {
 	parseMethods();
 	parseAutoindex();
 	parseIndex();
+
 /*	std::cout << "host: " << getHost() << ", port: " << getPort() << std::endl;
 	std::cout << "server name: " << getName() << std::endl;
 	std::cout << "error pages: " << std::endl;
@@ -277,32 +278,85 @@ int							ServerBlock::parse () {
 	return (0);
 }
 
+// selecting which location will respond to the request
 LocationBlock				ServerBlock::selectLocationBlock (std::string requestURI) const {
 	std::vector<LocationBlock>	locationBlocks;
-	size_t						max = 0;
-	size_t						ret = 0;
+	std::vector<std::string>	requestURIvec;
+	size_t						max = 0,ret = 0, level;
 
+	// first, split the request URI by '/'
+	if (requestURI[0] == '/')
+		requestURIvec = split(&requestURI[1], '/');
+	else
+		requestURIvec = split(requestURI, '/');
+
+	// size of the splitted vector
+	level = requestURIvec.size();
+
+	// only one nested location is available for now
+	if (level > 2) {
+		printErr("only one nested location block is available (at the moment)");
+		return (LocationBlock());
+	}
+
+	// add '/' to each of the string in the vector
+	for (size_t i = 0; i < level; i++)
+		requestURIvec[i] = "/" + requestURIvec[i];
+
+	// if nested location's URI doesn't contain its parent location's URI, it is an error
+	for (size_t i = 0; i < _locations.size(); i++) {
+		std::vector<LocationBlock>	nested = _locations[i].getLocationBlocks();
+		for (size_t j = 0; j < nested.size(); j++) {
+			if (nested[j].getBlock() != "") {
+				if (nested[j].getURI().find(_locations[i].getURI(), 0) == std::string::npos) {
+					printErr("wrong URI in location block");
+					return (LocationBlock());
+				}
+			}
+		}
+	}
+
+	// look for locations whose modifier is '='; the request URI must match the location's URI
 	for (size_t i = 0; i < _locations.size(); i++) {
 		if (_locations[i].getMod() == EXACT) {
 			if (_locations[i].getURI() == requestURI)
 				return (_locations[i]);
+			else
+				break ;
 		}
 	}
 
+	// look for locations who don't have modifiers or '~'; the location's URI must contain the request URI
 	for (size_t i = 0; i < _locations.size(); i++) {
 		if (_locations[i].getMod() == NONE || _locations[i].getMod() == PREFERENTIAL) {
-			if (requestURI.find(_locations[i].getURI(), 0) != std::string::npos)
-				locationBlocks.push_back(_locations[i]);
+			if (_locations[i].getURI().find(requestURIvec[0], 0) != std::string::npos) {
+				// first, check if the two URIs match
+				if (_locations[i].getURI() == requestURI)
+					locationBlocks.push_back(_locations[i]);
+				// then, check for the level of the request URI
+				else if (level == 1)
+					locationBlocks.push_back(_locations[i]);
+				else {
+					// if the request URI has more than one slashes (nested), get the nested locations and compare their URIs
+					std::vector<LocationBlock>	nested = _locations[i].getLocationBlocks();
+					for (size_t j = 0; j < nested.size(); j++) {
+						if (!compareURIsWithWildcard(nested[j].getURI(), requestURIvec[1], nested[j].getMod()))
+							locationBlocks.push_back(nested[j]);
+					}
+				}
+			}
 		}
 	}
 
+	// if no location was found, return empty location
 	if (locationBlocks.empty())
 		return (LocationBlock());
 
-	max = locationBlocks[ret].getURI().size();
+	// if there are more than one locations selected, return the location with longest URI
+	max = locationBlocks[ret].getURI().length();
 	for (size_t i = 1; i < locationBlocks.size(); i++) {
 		if (locationBlocks[i].getURI().size() > max) {
-			max = locationBlocks[i].getURI().size();
+			max = locationBlocks[i].getURI().length();
 			ret = i;
 		}
 	}

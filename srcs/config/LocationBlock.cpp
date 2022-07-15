@@ -9,7 +9,9 @@ LocationBlock::LocationBlock ()
 	_redirect(),
 	_root("."),
 	_autoindex(ON),
-	_index()
+	_index(),
+	_cgi(""),
+	_locations()
 {}
 
 LocationBlock::LocationBlock (std::string block)
@@ -21,7 +23,9 @@ LocationBlock::LocationBlock (std::string block)
 	_redirect(),
 	_root("."),
 	_autoindex(ON),
-	_index()
+	_index(),
+	_cgi(""),
+	_locations()
 {}
 
 LocationBlock::LocationBlock (const LocationBlock &lb)
@@ -33,7 +37,9 @@ LocationBlock::LocationBlock (const LocationBlock &lb)
 	_redirect(lb._redirect),
 	_root(lb._root),
 	_autoindex(lb._autoindex),
-	_index(lb._index)
+	_index(lb._index),
+	_cgi(lb._cgi),
+	_locations(lb._locations)
 {}
 
 LocationBlock::~LocationBlock() {}
@@ -48,6 +54,8 @@ LocationBlock	&LocationBlock::operator= (const LocationBlock &lb) {
 	_root = lb._root;
 	_autoindex = lb._autoindex;
 	_index = lb._index;
+	_cgi = lb._cgi,
+	_locations = lb._locations;
 
 	return (*this);
 }
@@ -61,6 +69,7 @@ int							LocationBlock::getRedirect () const { return (_redirect); }
 std::string					LocationBlock::getRoot () const { return (_root); }
 bool						LocationBlock::getAutoindex () const { return (_autoindex); }
 std::vector<std::string>	LocationBlock::getIndex () const { return (_index); }
+std::string					LocationBlock::getCGI () const { return (_cgi); }
 std::vector<LocationBlock>	LocationBlock::getLocationBlocks () const { return (_locations); }
 
 void						LocationBlock::setMod (int mod) { _mod = mod; }
@@ -71,10 +80,11 @@ void						LocationBlock::setRedirect (int redirection) { _redirect = redirection
 void						LocationBlock::setRoot (std::string root) { _root = root; }
 void						LocationBlock::setAutoindex (bool autoindex) { _autoindex = autoindex; }
 void						LocationBlock::setIndex (std::vector<std::string> index) { _index = index; }
+void						LocationBlock::setCGI (std::string cgi) { _cgi = cgi; }
 void						LocationBlock::addLocationBlock (LocationBlock lc) { _locations.push_back(lc); }
 
 int							LocationBlock::parseModMatch () {
-	size_t	pos = 0, bracketPos = _block.find("{", 0);;
+	size_t	pos = 0, bracketPos = _block.find("{", 0);
 	size_t	end = _block.find("\n", 0);
 
 	while (std::isspace(_block[pos]))
@@ -82,11 +92,11 @@ int							LocationBlock::parseModMatch () {
 
 	if (_block[pos] == '/')
 		setMod(NONE);
-	if (_block[pos] == '=') {
+	else if (_block[pos] == '=') {
 		setMod(EXACT);
 		pos++;
 	}
-	if (_block[pos] == '^' && _block[pos] == '~') {
+	else if (_block[pos] == '^' && _block[pos] == '~') {
 		setMod(PREFERENTIAL);
 		pos += 2;
 	}
@@ -102,16 +112,16 @@ int							LocationBlock::parseModMatch () {
 }
 
 int							LocationBlock::parseClntSize () {
-	std::pair<bool, size_t>	res = skipKey(_block, "client_body_size");
+	std::pair<bool, size_t>	res = skipKey(_block, "client_max_body_size", ";");
 	int						clntSize;
 
 	if (res.first == false)
 		return (0);
 
-	clntSize = strToInt(parseValue(_block, res.second));;
+	clntSize = MiBToBits(parseValue(_block, res.second, ";"));
 
 	if (clntSize < 0)
-		return (printErr("size should be positive"));
+		return (printErr("wrong client max body size (should be positive)"));
 
 	setClntSize(clntSize);
 
@@ -120,12 +130,12 @@ int							LocationBlock::parseClntSize () {
 
 int							LocationBlock::parseMethods () {
 	std::string				methods;
-	std::pair<bool, size_t>	res = skipKey(_block, "allow_methods");
+	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{");
 
 	if (res.first == false)
 		return (0);
 
-	methods = parseValue(_block, res.second);
+	methods = parseValue(_block, res.second, "{");
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
@@ -140,24 +150,24 @@ int							LocationBlock::parseMethods () {
 }
 
 int							LocationBlock::parseRoot () {
-	std::pair<bool, size_t>	res = skipKey(_block, "root");
+	std::pair<bool, size_t>	res = skipKey(_block, "root", ";");
 
 	if (res.first == false)
 		return (0);
 
-	setRoot(parseValue(_block, res.second));
+	setRoot(parseValue(_block, res.second, ";"));
 
 	return (0);
 }
 
 int							LocationBlock::parseAutoindex () {
 	std::string				is;
-	std::pair<bool, size_t>	res = skipKey(_block, "autoindex");
+	std::pair<bool, size_t>	res = skipKey(_block, "autoindex", ";");
 
 	if (res.first == false)
 		return (0);
 
-	is = parseValue(_block, res.second);
+	is = parseValue(_block, res.second, ";");
 
 	if (is == "on") setAutoindex(ON);
 	else if (is == "off") setAutoindex(OFF);
@@ -167,23 +177,43 @@ int							LocationBlock::parseAutoindex () {
 
 int							LocationBlock::parseIndex () {
 	std::string				index;
-	std::pair<bool, size_t>	res = skipKey(_block, "index");
+	std::pair<bool, size_t>	res = skipKey(_block, "index", ";");
 
 	if (res.first == false)
 		return (0);
 
-	index = parseValue(_block, res.second);
+	index = parseValue(_block, res.second, ";");
 	setIndex(split(index, ' '));
 
 	return (0);
 }
 
+int							LocationBlock::parseCGI () {
+	std::pair<bool, size_t>	res = skipKey(_block, "cgi_pass", ";");
+
+	if (res.first == false)
+		return (0);
+
+	setCGI(parseValue(_block, res.second, ";"));
+
+	return (0);
+}
+
 int							LocationBlock::parse () {
+	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
+
+	for (size_t i = 0; i < locBlocks.size(); i++) {
+		addLocationBlock(LocationBlock(locBlocks[i]));
+		_locations[i].parse();
+	}
+
 	parseModMatch();
 	parseClntSize();
 	parseMethods();
+	parseRoot();
 	parseAutoindex();
 	parseIndex();
+	parseCGI();
 
 /*	std::cout << "modifier: " << _mod << ", uri: " << _uri << std::endl;
 	std::cout << "client size: " << _clntSize << std::endl;

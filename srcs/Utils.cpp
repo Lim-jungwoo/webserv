@@ -8,7 +8,7 @@ int							printErr (std::string errMsg) {
 
 /* function that splits a string by a delimiter. */
 std::vector<std::string>	split (std::string str, char delimiter) {
-	size_t						pos_start = 0, pos_end;
+	size_t						startPos = 0, endPos;
 	std::vector<std::string>	ret;
 	std::string					token;
 
@@ -17,39 +17,70 @@ std::vector<std::string>	split (std::string str, char delimiter) {
 		return (ret);
 	}
 
-	while ((pos_end = str.find(delimiter, pos_start)) != std::string::npos) {
-		token = str.substr(pos_start, pos_end - pos_start);
-		pos_start = pos_end + 1;
+	while ((endPos = str.find(delimiter, startPos)) != std::string::npos) {
+		token = str.substr(startPos, endPos - startPos);
+		startPos = endPos + 1;
 		ret.push_back(token);
 
 	}
-	ret.push_back(str.substr(pos_start));
+	ret.push_back(str.substr(startPos));
+
 	return (ret);
+}
+
+std::string					trim (std::string str) {
+	size_t		startPos = 0, endPos = str.length() - 1;
+
+	while (std::isspace(str[startPos]))
+		startPos++;
+	while (std::isspace(str[endPos]))
+		endPos--;
+
+	return (str.substr(startPos, endPos - startPos + 1));
+}
+
+size_t						skipBlock (std::string block) {
+	size_t	i = 1;
+
+	while (block[i] != '}') {
+		if (block[i] == '{')
+			i += skipBlock(&block[i]);
+		else
+			i++;
+	}
+	i++;
+
+	return (i);
 }
 
 /* function that splits a config file into server blocks. */
 std::vector<std::string>	splitBlocks (std::string block, std::string type) {
-//std::vector<std::string>	splitServerBlocks (std::string block) {
 	std::vector<std::string>	ret;
 	size_t						startPos = 0, endPos = 0;
 
-	while (block.find(type, startPos) != std::string::npos) {
-		startPos = block.find(type, startPos) + type.length() - 1;
-//	while (block.find("server ", startPos) != std::string::npos) {
-//		startPos = block.find("server ", startPos) + 6;
+	while (block.find(type, endPos) != std::string::npos) {
+		startPos = block.find(type, endPos) + type.length() - 1;
 		while (std::isspace(block[startPos]))
 			startPos++;
 		if (block[startPos] == '{')
 			startPos++;
 		endPos = startPos;
-		while (block[endPos] != '}') {
-			if (block[endPos] == '{') {
-				while (block[endPos] != '}')
-					endPos++;
+
+		if (type == "location ") {
+			while (block[endPos] != '{')
 				endPos++;
-			}
 			endPos++;
 		}
+
+		while (block[endPos] != '}') {
+			if (block[endPos] == '{')
+				endPos += skipBlock(&block[endPos]);
+			else
+				endPos++;
+		}
+		if (type == "location ")
+			endPos++;
+
 		ret.push_back(block.substr(startPos, endPos - startPos));
 	}
 
@@ -84,16 +115,15 @@ std::vector<std::string>	splitLocationBlocks (std::string block) {
 }
 
 /* function that returns the position after skipping [key]. (if [key] is not found, bool = false.) */
-std::pair<bool, size_t>		skipKey (std::string line, std::string key) {
+std::pair<bool, size_t>		skipKey (std::string line, std::string key, std::string delimiter) {
 	size_t	pos = line.find(key, 0);
-	size_t	scPos = line.find(";", pos);
+	size_t	scPos = line.find(delimiter, pos);
 	size_t	nlPos = line.find("\n", pos);
 
 	if (pos == std::string::npos)
 		return (std::make_pair(false, pos));
 
 	if (scPos == std::string::npos || nlPos == std::string::npos || scPos > nlPos) {
-		printErr("invalid server block");
 		return (std::make_pair(false, pos));
 	}
 
@@ -113,9 +143,9 @@ bool						isNumber (std::string str) {
 }
 
 /* function that parses the value. ([pos] = position returned in the above ::skipKey()) */
-std::string					parseValue (std::string line, size_t pos) {
-	size_t	scPos = line.find(";", pos);
-	return (line.substr(pos, scPos - pos));
+std::string					parseValue (std::string line, size_t pos, std::string delimiter) {
+	size_t	scPos = line.find(delimiter, pos);
+	return (trim(line.substr(pos, scPos - pos)));
 }
 
 /* function that converts a string into an int. */
@@ -140,10 +170,48 @@ int			MiBToBits (std::string size) {
 	if (!isNumber(size.substr(0, size.size() - 1)))
 		return (-1);
 
-	if (size[size.size() - 1] != 'm')
-		return (-1);
+/*	if (size[size.size() - 1] != 'm')
+		return (-1);*/
 
 	return (strToInt(size.substr(0, size.size() - 1)) * 8388608);
+}
+
+int				compareURIsWithWildcard(std::string URI, std::string request, int mod) {
+	size_t		pos = URI.find('/', URI.find('/', 0) + 1) + 1;
+	char		start;
+	std::string	temp;
+	std::string	temp2;
+
+	temp = &URI[pos];
+	if (URI[pos] != '*') {
+		if (mod == EXACT) {
+			if (temp == &request[1])
+				return (0);
+		}
+
+		if (mod == NONE || mod == PREFERENTIAL) {
+			if (temp.find(&request[1], 0) != std::string::npos)
+				return (0);
+		}
+
+		return (1);
+	}
+
+	start = URI[pos + 1];
+	temp = &URI[pos + 1];
+	temp2 = request.substr(request.find(start, 0), request.length() - request.find(start, 0));
+
+	if (mod == EXACT) {
+		if (temp == temp2)
+			return (0);
+	}
+
+	if (mod == NONE || mod == PREFERENTIAL) {
+		if (temp.find(temp2, 0) != std::string::npos)
+			return (0);
+	}
+
+	return (1);
 }
 
 unsigned int	host_to_int(std::string host)
