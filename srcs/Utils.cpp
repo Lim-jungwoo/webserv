@@ -266,26 +266,6 @@ int	pathIsFile(const std::string& path)
 	return (0);
 }
 
-std::string	readHtml(const std::string& path, std::string* type)
-{//path가 REGULAR file이면 open하여 파일 내용을 리턴한다.
-//path가 REGULAR file이 아니면 error_html을 보낸다.
-	std::ofstream			file;
-	std::stringstream		buf;
-
-	if (pathIsFile(path))
-	{
-		file.open(path.c_str(), std::ifstream::in);
-		if (file.is_open() == false)
-			return (ERROR_HTML);
-		buf << file.rdbuf();
-		file.close();
-		*type = "text/html";
-		return (buf.str());
-	}
-	else
-		return (ERROR_HTML);
-}
-
 std::string	set_uri(const std::string& dirList, const std::string& dirName,
 	const std::string& host, const int port)
 {
@@ -371,18 +351,135 @@ int	compare_end(const std::string& s1, const std::string& s2)
 	return (0);
 }
 
+std::string	find_extension(std::string& file)
+{//file의 확장자를 찾는다.
+	size_t	extension_start = file.find_last_of('.');
+	if (extension_start == std::string::npos)
+		return ("");
+	std::string	extension = file.substr(extension_start + 1, file.length() - extension_start - 1);
+	return (extension);
+}
+
+std::string	find_file_name(const std::string& path)
+{
+	size_t	file_name_start = path.find_last_of('/');
+	if (file_name_start == std::string::npos)
+		return (path);
+	std::string	file_name = path.substr(file_name_start + 1, path.length() - file_name_start - 1);
+	return (file_name);
+}
+
+std::string	find_file_type(const std::string& file)
+{
+	if (file.length() == 1)
+		return ("");
+	size_t	file_type_start = file.find_first_of('.');
+	if (file_type_start == std::string::npos)
+		return ("");
+	std::string	file_type = file.substr(file_type_start + 1, file.length() - file_type_start - 1);
+	return (file_type);
+}
+
+std::string	erase_file_type(const std::string& file)
+{
+	if (file.length() == 1)
+		return (file);
+	size_t	file_type_start = file.find_first_of('.');
+	if (file_type_start == std::string::npos)
+		return (file);
+	std::string	pure_file_name = file.substr(0, file_type_start);
+	return (pure_file_name);
+}
+
+std::string	find_header_value(const std::string& header)
+{
+	size_t	colon_pos = header.find(":");
+	if (colon_pos == std::string::npos)
+		return ("");
+	std::string	value = header.substr(colon_pos + 1, header.length() - colon_pos - 1);
+	value = str_trim_char(value);
+	return (value);
+}
+
+std::string	str_trim_char(const std::string& str, char delete_char)
+{
+	std::string	ret_str = str;
+	size_t		ret_start = 0;
+	size_t		ret_end = 0;
+
+	if ((ret_start = ret_str.find_first_not_of(delete_char)) != std::string::npos)
+		ret_str = ret_str.substr(ret_start, ret_str.length() - ret_start);
+	else
+		return ("");
+	if ((ret_end = ret_str.find_last_not_of(delete_char)) != std::string::npos)
+		ret_str = ret_str.substr(0, ret_end + 1);
+	return (ret_str);
+}
+
+std::string	str_delete_rn(const std::string& str)
+{
+	std::string	ret_str(str);
+	size_t		r_pos = 0;
+
+	if ((r_pos = ret_str.find("\r\n")) != std::string::npos)
+		ret_str = ret_str.substr(0, r_pos);
+	return (ret_str);
+}
+
+int	isStrAlpha(const std::string& str)
+{
+	for (std::string::const_iterator it = str.begin(); it != str.end(); it++)
+	{
+		if (std::isalpha(*it) == 0)
+			return (0);
+	}
+	return (1);
+}
+
+int	isStrUpper(const std::string& str)
+{
+	for (std::string::const_iterator it = str.begin(); it != str.end(); it++)
+	{
+		if (std::isupper(*it) == 0)
+			return (0);
+	}
+	return (1);
+}
+
+int	make_html(const std::string& html_name, int code,
+	const std::string& code_str, const std::string& server_name)
+{
+	std::ofstream	html_file;
+	std::string		file_content;
+
+	html_file.open(html_name);
+	if (html_file.is_open() == false)
+	{
+		std::cerr << "HTML FILE MAKE ERROR\n";
+		return (Internal_Server_Error);
+	}
+	file_content += "<html>\n"
+	"<head><title>" + intToStr(code) + " " + code_str + "</title></head>\n"
+	"<body>\n<center><h1>" + intToStr(code) + " " + code_str + "</h1></center>\n"
+	"<hr><center>" + server_name + "</center>\n"
+	"</body>\n"
+	"</html>";
+	html_file << file_content;
+	html_file.close();
+	return (0);
+}
+
 // int	main()
 // {
-// 	std::string	str = "r\n\r\n";
-// 	std::string	end = "\r\n\r\n";
-
-// 	if (compare_end(str, end) == 0)
-// 	{
-// 		std::cout << "str has end\n";
-// 	}
+// 	std::string	str1 = "SHOW1234";
+// 	std::string	str2 = "AHOQ";
+// 	if (isStrUpper(str1) == 1)
+// 		std::cout << "str1 is alpha\n";
 // 	else
-// 	{
-// 		std::cout << "str has no end\n";
-// 	}
-// 	return (1);
+// 		std::cout << "str1 is not alpha\n";
+// 	if (isStrUpper(str2) == 1)
+// 		std::cout << "str2 is alpha\n";
+// 	else
+// 		std::cout << "str2 is not alpha\n";
+
 // }

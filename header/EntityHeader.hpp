@@ -14,46 +14,85 @@ class EntityHeader : public GeneralHeader
 
 		void	setContentLength(const size_t& size = 0)
 		{ this->_content_length = intToStr(size); }
-		void	setContentType(const std::string& path, std::string type = "")
+		void	setContentLength(const std::string& path = "" , const std::string& content_length = "")
+		{
+			if (content_length != "")
+				this->_content_length = content_length;
+			else if (path != "")
+			{
+				struct stat file_stat;
+				if (!stat(path.c_str(), &file_stat))
+				{
+					this->_content_length = intToStr(file_stat.st_size);
+				}
+				else
+				{
+					std::cerr << "get file size has error\n";
+					this->setCode(Internal_Server_Error);
+				}
+			}
+		}
+
+		void	setContentTypeLocation(const std::string& path, std::string type = "", std::string content_location = "")
 		{//html, css, js, jpeg, png, bmp, plain만 정해놨는데 다른 것도 해야되는지 알아봐야 한다.
 			if (type != "")
 			{
 				this->_content_type = type;
+				this->_content_location = path;
 				return ;
 			}
-			type = path.substr(path.rfind(".") + 1, path.size() - path.rfind("."));
-			if (type == "css")
-				this->_content_type = "text/css";
-			else if (type == "html")
-				this->_content_type = "text/html";
-			else if (type == "js")
-				this->_content_type = "text/javascript";
-			else if (type == "apng")
-				this->_content_type = "image/apng";
-			else if (type == "avif")
-				this->_content_type = "image/avif";
-			else if (type == "gif")
-				this->_content_type = "image/gif";
-			else if (type == "jpeg" || type == "jpg")
-				this->_content_type = "image/jpeg";
-			else if (type == "png")
-				this->_content_type = "image/png";
-			else if (type == "svg")
-				this->_content_type = "image/svg+xml";
-			else if (type == "webp")
-				this->_content_type = "image/webp";
+			std::string	file_name = find_file_name(path);
+			std::string	file_type = find_file_type(file_name);
+			std::string	pure_file_name = erase_file_type(file_name);
+			std::string	content_type;
+			
+			if (file_type == "css")
+				content_type = "text/css";
+			else if (file_type == "html")
+				content_type = "text/html";
+			else if (file_type == "js")
+				content_type = "text/javascript";
+			else if (file_type == "apng")
+				content_type = "image/apng";
+			else if (file_type == "avif")
+				content_type = "image/avif";
+			else if (file_type == "gif")
+				content_type = "image/gif";
+			else if (file_type == "jpeg" || file_type == "jpg")
+				content_type = "image/jpeg";
+			else if (file_type == "png")
+				content_type = "image/png";
+			else if (file_type == "svg")
+				content_type = "image/svg+xml";
+			else if (file_type == "webp")
+				content_type = "image/webp";
 			//bmp는 사용을 안 하는 것이 좋다고 한다.
-			// else if (type == "bmp")
-			// 	this->_content_type = "image/bmp";
+			// else if (file_type == "bmp")
+			// 	file_type = "image/bmp";
 			//비디오, 음악 파일은 일단 제외했다.
 			else
-				this->_content_type = "text/plain";
+			{//file_type이 이상할 떄
+				file_type = "";
+				content_type = "text/plain";
+			}
+			this->_content_type = content_type;
+
+			std::string	check_content_location = path.substr(0, path.length() - file_name.length());
+			
+			if (content_location != "")
+				this->_content_location = content_location;
+			else if (file_type == "")
+				this->_content_location = check_content_location + pure_file_name;
+			else
+				this->_content_location = path;
+			if (this->_content_location.at(0) != '/')
+				this->_content_location.insert(0, "/");
 		}
-		void	setContentLanguage(const std::string& lang = "en")
-		{ this->_content_language = lang;}
-		void	setContentLocation(const std::string& path)
-		{ this->_content_location = path; }
+		void	setContentLanguage(const std::string& content_language = "en")
+		{ this->_content_language = content_language;}
 		
+		void	setContentEncoding(const std::string& content_encoding = "")
+		{ this->_content_encoding = content_encoding; }
 		
 		//둘 다 쓰는지 확인해보자
 		void	setAllow(const std::string& allow)
@@ -68,6 +107,33 @@ class EntityHeader : public GeneralHeader
 				it++;
 			}
 		}
+
+		void	setCode(const int& code = 0)
+		{
+			if (this->_code == 0)
+				this->_code = code;
+		}
+
+		void	initPossibleMethod()
+		{
+			this->_possible_method.insert("GET");
+			this->_possible_method.insert("POST");
+			this->_possible_method.insert("PUT");
+			this->_possible_method.insert("DELETE");
+		}
+
+		void	setAllowMethod(const std::string& method)
+		{
+			this->_allow_method.insert(method);
+		}
+
+		void	initAllowMethod()
+		{
+			this->_allow_method.insert("GET");
+			this->_allow_method.insert("POST");
+			this->_allow_method.insert("PUT");
+			this->_allow_method.insert("DELETE");
+		}
 	
 	// protected:
 		std::string	_content_length; //메시지의 크기
@@ -77,7 +143,10 @@ class EntityHeader : public GeneralHeader
 		std::string	_content_location; //반환된 데이터 개체의 실제 위치
 		std::string	_content_encoding; //컨텐츠가 압축된 방식
 		std::string	_allow; //지원되는 HTTP 메소드, 만약 비어있다면 모든 메소드가 금지라는 뜻
-
+		
+		int			_code;
+		std::set<std::string>	_allow_method; //configuration file에서 얻어온다.
+		std::set<std::string>	_possible_method;
 		/*
 		//사용안할 것 같은 것
 		std::string	_content_disposition; //응답 본문을 브라우저가 어떻게 표시해야할 지 알려주는 헤더

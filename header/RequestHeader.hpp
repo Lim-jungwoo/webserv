@@ -3,133 +3,69 @@
 
 # include "EntityHeader.hpp"
 
+
+
 class RequestHeader : public EntityHeader
 {//HTTP요청에서 사용되지만 메시지의 컨텐츠와 관련이 없는 패치될 리소스나 클라리언트 자체에 대한 자세한 정보를 포함하는 헤더
 	public:
-		RequestHeader() { this->resetHeader(); }
+		RequestHeader() { }
 		RequestHeader(const RequestHeader& rh)
 		{
 			(void)rh;
-			this->resetHeader();
 		}
 		virtual ~RequestHeader() {}
 
 		RequestHeader&	operator=(const RequestHeader& rh)
 		{ (void)rh; return (*this); }
 
-		void	resetHeader()
+		int	check_request_line(std::string request_line)
 		{
-			this->_listen.host = 0;
-			this->_listen.port = 0;
-			this->_host = "";
-			this->_user_agent = "";
-			this->_accept = "";
-			this->_accept_charset = "";
-			this->_accept_language = "";
-			this->_accept_encoding = "";
-			this->_origin = "";
-			this->_authorization = "";
-			this->_content_length = "";
-			this->_content_type = "";
-			this->_content_language = "";
-			this->_content_location = "";
-			this->_content_encoding = "";
-			this->_body = "";
-		}
-		
-		void	print_request_header()
-		{
-			std::cout << "Host: " << this->_host << std::endl;
-			std::cout << "User-Agent: " << this->_user_agent << std::endl;
-			std::cout << "Accept: " << this->_accept << std::endl;
-			std::cout << "Accept-Charset: " << this->_accept_charset << std::endl;
-			std::cout << "Accept-Lanugage: " << this->_accept_language << std::endl;
-			std::cout << "Accept-Encoding: " << this->_accept_encoding << std::endl;
-			std::cout << "Origin: " << this->_origin << std::endl;
-			std::cout << "Authorization: " << this->_authorization << std::endl;
-			std::cout << "Content-Length: " << this->_content_length << std::endl;
-			std::cout << "Content-Type: " << this->_content_type << std::endl;
-			std::cout << "Content-Language: " << this->_content_language << std::endl;
-			std::cout << "Content-Location: " << this->_content_location << std::endl;
-			std::cout << "Content-Encoding: " << this->_content_encoding << std::endl;
-			std::cout << "Body: " << this->_body << std::endl;
-		}
-		
-		void	print_request_line()
-		{
-			write(1, "method: ", 8);
-			write(1, this->_method.c_str(), this->_method.length());
-			write(1, "\npath: ", 7);
-			write(1, this->_path.c_str(), this->_path.length());
-			std::cout << std::endl << "is http: " << this->_is_http << std::endl;
-		}
-
-		int	set_request_line(std::string request_line)
-		{
-			std::vector<std::string>	request_line_vec = split(request_line, ' ');
-			//request_line에 빈칸이 없으면 그대로 request_line_vec에는 request_line이 그대로 들어간다.
+			std::string					request_line_delete_rn = str_delete_rn(request_line);
+			std::vector<std::string>	request_line_vec = split(request_line_delete_rn, ' ');
 			std::vector<std::string>::iterator	request_line_it = request_line_vec.begin();
-			this->_method = *request_line_it;
-			//allow method가 아니면 종료되도록 하자
-			//일단 간단하게 임의로 allow method를 초기화해서 확인
-			// print_vec(request_line_vec);
-			if (this->_method != "GET" && this->_method != "POST"\
-				&& this->_method != "DELETE" && this->_method != "PUT")
+			
+			if (request_line_vec.size() <= 1 || request_line_vec.size() > 3)
 			{
-				std::cerr << this->_method << " is not allowed\n";
+				std::cerr << "request line size is " << request_line_vec.size() << std::endl;
 				return (1);
 			}
-			if (request_line_vec.size() != 3)
-			{
-				std::cerr << "request line size is " << request_line_vec.size() << ", not 3\n";
+			this->_method = *request_line_it;
+			
+			if (isStrUpper(this->_method) == 0)
+			{//method가 대문자가 아니라면 바로 종료
 				return (1);
 			}
 
 			request_line_it++;
 			this->_path = *request_line_it;
+			if (this->_path == "/")
+			{ this->_path = DEFAULT_HTML; }
+			else if (this->_path.at(0) == '/')
+				this->_path = this->_path.substr(1, this->_path.length() - 1);
+
+			if (this->_method == "GET" && request_line_vec.size() == 2)
+			{//GET method이고, request_line이 2개의 단어로 이루어져 있다면 HTTP/0.9버전이다.
+			//일단 바로 종료하도록 9를 리턴하도록 하자
+				this->_http_version = "HTTP/0.9";
+				this->setConnection("close");
+				return (9);
+			}
+			else if (request_line_vec.size() == 2)
+			{//GET method가 아닌데 2개의 단어로 이루어져 있다면 에러
+				std::cerr << "request line size is two but method is not get\n";
+				return (1);
+			}
 
 			request_line_it++;
-			if (*request_line_it != "HTTP/1.1")
+			this->_http_version = *request_line_it;
+			std::cout << "http version : " << this->_http_version;
+			if (this->_http_version == "HTTP/1.0")
+				this->setConnection("close");
+			if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
 			{
-				this->_is_http = false;
-				std::cerr << "http_version is not HTTP/1.1\n";
+				std::cerr << "request line http version is not 1.0 and not 1.1\n";
 				return (1);
 			}
-			else
-				this->_is_http = true;
-			return (0);
-		}
-		int	check_body(std::string request, size_t r_pos)
-		{
-			std::string	body = "";
-			size_t			start = r_pos;
-			if (r_pos == request.length() || r_pos == std::string::npos)
-			{
-				body = "";
-			}
-			else if ((r_pos = request.find('\r', start)) != std::string::npos)
-			{
-				if (r_pos == start)
-				{
-					if (request.at(r_pos + 1) == '\n')
-					{
-						std::cerr << "There are two empty line\n";
-						return (1);
-					}
-				}
-				body = request.substr(start, r_pos - start);
-			}
-			else
-			{
-				std::cerr << "body has not \\r\\n\n";
-				return (1);
-			}
-			if (r_pos + 2 < request.length() && r_pos != std::string::npos)
-			{
-				std::cerr << "there is some data after body\n";
-				return (1);
-			}
-			this->_body = body;
 			return (0);
 		}
 
@@ -138,116 +74,116 @@ class RequestHeader : public EntityHeader
 			for (std::vector<std::string>::iterator	it = header.begin() + 1;
 				it != header.end(); it++)
 			{
-				size_t	n_pos = 0;
-				std::string	value = "";
-				if (strncmp((*it).c_str(), "Host: ", 6) == 0)
+				if (strncmp((*it).c_str(), "Host:", 5) == 0)
 				{//Host의 값을 찾아서 값을 넣어준다.
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_host = value;
-					// std::cout << "Host: " << value << std::endl;
+					this->_host = find_header_value(*it);
+					if (this->setListen(this->_host) == 1)
+						return (1);
 				}
-				else if (strncmp((*it).c_str(), "User-Agent: ", 12) == 0)
+				else if (strncmp((*it).c_str(), "User-Agent:", 11) == 0)
+					this->_user_agent = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Accept:", 7) == 0)
+					this->_accept = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Accept-Charset:", 15) == 0)
+					this->_accept_charset = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Accept-Language:", 16) == 0)
+					this->_accept_language = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Accept-Encoding:", 16) == 0)
+					this->_accept_encoding = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Origin:", 7) == 0)
+					this->_origin = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Authorization:", 14) == 0)
+					this->_authorization = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Content-Length:", 15) == 0)
+					this->_content_length = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Content-Type:", 13) == 0)
+					this->_content_type = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Transfer-Encoding:", 18) == 0)
+					this->_transfer_encoding = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Content-Language:", 17) == 0)
+					this->_content_language = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Content-Location:", 17) == 0)
+					this->_content_location = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Content-Encoding:", 17) == 0)
+					this->_content_encoding = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "Connection:", 11) == 0)
+					this->_connection = find_header_value(*it);
+				else
+				{//이상한 header값일 때 :(콜론)과 ' '(공백)을 확인하여 에러처리
+				//:(콜론)이 없는 데 ' '(공백)이 있다면 에러, 콜론이 없더라도 공백이 없으면 에러가 아님
+				//공백은 무조건 콜론 뒤에서만 허용된다.
+					if (check_header_available(*it) == 1)
+					{
+						std::cout << "request header has strange value\n";
+						return (1);
+					}
+				}
+			}
+			if (this->_content_length != "" && this->_transfer_encoding == "")
+			{//content_length가 있고, transfer_encoding은 없을 때
+				if (isNumber(this->_content_length) == 0)
 				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_user_agent = value;
-					// std::cout << "User-Agent : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Accept: ", 8) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_accept = value;
-					// std::cout << "Accept : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Accept-Charset: ", 16) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_accept_charset = value;
-					// std::cout << "Accept-Charset : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Accept-Language: ", 17) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_accept_language = value;
-					// std::cout << "Accept-Language : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Accept-Encoding: ", 17) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_accept_encoding = value;
-					// std::cout << "Accept-Encoding : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Origin: ", 8) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_origin = value;
-					// std::cout << "Origin : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Authorization: ", 15) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_authorization = value;
-					// std::cout << "Authorization : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Content-Length: ", 16) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_content_length = value;
-					// std::cout << "Content-Length : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Content-Type: ", 14) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_content_type = value;
-					// std::cout << "Content-Type : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Content-Language: ", 18) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_content_language = value;
-					// std::cout << "Content-Language : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Content-Location: ", 18) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_content_location = value;
-					// std::cout << "Content-Location : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Content-Encoding: ", 18) == 0)
-				{
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_content_encoding = value;
-					// std::cout << "Content-Encoding : " << value << std::endl;
-				}
-				else if (strncmp((*it).c_str(), "Allow: ", 7) == 0)
-				{//allow도 응답헤더
-					n_pos = (*it).find(" ");
-					value = (*it).substr(n_pos + 1, (*it).length() - n_pos - 1);
-					this->_allow = value;
-					// std::cout << "Allow: " << value << std::endl;
+					std::cerr << "content_length is not number\n";
+					this->_content_length = "";
+					return (1);
 				}
 				else
-				{//이상한 header값이므로 error 처리
-					std::cout << "request header has strange value\n";
+				{
+					this->_body_size = std::atoi(this->_content_length.c_str());
+				}
+			}
+			if (this->check_essential_header() == 1)
+				return (1);
+			return (0);
+		}
+
+		int	check_header_available(const std::string& header, char colon = ':', char space = ' ')
+		{
+			size_t	colon_pos;
+			size_t	space_pos;
+			if ((space_pos = header.find_first_of(space)) == std::string::npos)
+			//공백이 없으면 정상 작동
+				return (0);
+			else if ((colon_pos = header.find_first_of(colon)) == std::string::npos)
+			//공백이 있고 콜론이 없으면 에러
+				return (1);
+			else if (space_pos < colon_pos)
+			//공백이 있고 콜론이 있을 때 공백이 콜론보다 앞에 있으면 에러
+				return (1);
+			else
+			//공백이 있고 콜론이 있을 때 공백이 콜론보다 뒤에 있으면 정상
+				return (0);
+		}
+
+		int	check_essential_header()
+		{
+			if (this->_http_version == "HTTP/0.9")
+				return (0);
+			std::cout << "host : " << this->_host << std::endl;
+			if (this->_host == "")
+			{
+				std::cerr << "host header is not exist\n";
+				return (1);
+			}
+			if (this->_method == "PUT" || this->_method == "POST")
+			{//Content-Type, Content-Length(or Transfer-Encoding)이 있어야 한다.
+				if (this->_content_length != "" && this->_transfer_encoding != "")
+				{
+					std::cerr << "content length, transfer encoding exist\n";
+					return (1);
+				}
+				else if (this->_content_type != "" && (this->_content_length != "" || this->_transfer_encoding != ""))
+					return (0);
+				else
+				{
+					std::cerr << "content type, content length header is not exist\n";
 					return (1);
 				}
 			}
 			return (0);
 		}
 
-		int	request_split(std::string request)
+		int	request_split(std::string request, int body_condition)
 		{
 			size_t	r_pos = 0;
 			std::vector<std::string>	str_header;
@@ -255,7 +191,7 @@ class RequestHeader : public EntityHeader
 			std::string		str;
 			std::map<std::string, std::string>	ret;
 			std::string		body = "";
-			std::cerr << "request===============" << request << std::endl;
+			std::cerr << "===============request===============\n" << request << std::endl;
 			while ((r_pos = request.find('\n', start)) != std::string::npos)
 			{//\r을 계속 찾아서 그것을 기준으로 vector에 넣어주자.
 				if (request.at(start) == '\r')
@@ -272,26 +208,71 @@ class RequestHeader : public EntityHeader
 				r_pos += 1;
 				start = r_pos;
 			}
-			if (str_header.empty())
-			{//요청이 한 줄만 왔을 때 set_request_line을 통해서 한 줄을 확인하고 종료
-				if (set_request_line(request) == 0)
-					return (0);
-				std::cerr << "request header has one line but request header has error\n";
-				return (1);
+			if (str_header.size() == 1 && body_condition == No_Body)
+			{//요청이 한 줄만 왔을 때
+				if (this->_http_version != "HTTP/0.9")
+				{
+					std::cerr << "request is one line but has no essential header\n";
+					return (1);
+				}
+				return (0);
 			}
-			if (set_request_line(*(str_header).begin()) == 1)
+			if (this->_http_version == "HTTP/0.9")
 			{
-				std::cerr << "request_line has error\n";
+				std::cerr << "http version is HTTP/0.9 but it has header\n";
 				return (1);
 			}
-			if (check_body(request, r_pos) == 1)
-				return (1);
+			if (this->_http_version == "HTTP/1.1")
+				this->setConnection();
+			else
+				this->setConnection("close");
 			if (check_header(str_header) == 1)
 				return (1);
 			return (0);
 		}
+
+		bool	host_to_int(std::string host)
+		{//string형인 host를 사용할 수 있도록 unsigned int형으로 바꿔준다.
+			size_t	sep = 0;
+			unsigned int	n;
+			size_t	start = 0;
+			std::string	substr;
+			unsigned int	ret = 0;
+			if (host == "localhost")
+				host = "127.0.0.1";
+			if (isNumber(host) == 1)
+			{//host가 그냥 숫자로 되어있을 떄
+				ret = std::atoi(host.c_str());
+				this->_listen.host = ret;
+				return (0);
+			}
+			for (int i = 3; i > -1; i--)
+			{
+				sep = host.find_first_of('.', sep);
+				if (i != 0 && sep == std::string::npos)
+				{
+					std::cerr << "host address has not .\n";
+					return (1);
+				}
+				if (i == 0)
+					sep = host.length();
+				substr = host.substr(start, sep - start);
+				if (isNumber(substr) == 0)
+				{
+					std::cerr << "host address is not number\n";
+					return (1);
+				}
+				n = std::atoi(substr.c_str());
+				for (int j = 0; j < i; j++)
+					n *= 256;
+				ret += n;
+				sep++; start = sep;
+			}
+			this->_listen.host = ret;
+			return (0);
+		}
 		
-		int	set_listen(const std::string& str_host = "")
+		int	setListen(const std::string& str_host = "")
 		{//에러가 발생하면 1을 리턴, 정상작동하면 0을 리턴
 			if (str_host == "")
 			{
@@ -304,14 +285,11 @@ class RequestHeader : public EntityHeader
 			host_port = split(str_host, ':');
 			if (*host_port.begin() == str_host)
 			{//포트는 생략할 수 있다. HTTP URL에서는 port default가 80이다.
-				this->_listen.port = 80;
-				if (str_host == "0.0.0.0")
-				{
-					this->_listen.host = 0;
-					return (0);
-				}
-				if ((host = host_to_int(str_host)) == 0)
+			//일단 8000으로 default port를 하자
+				this->_listen.port = htons(DEFAULT_PORT);
+				if ((host = host_to_int(str_host)) == 1)
 				{//str_host가 이상한 값을 가지고 있을 때
+					std::cerr << "host has strange value\n";
 					return (1);
 				}
 				this->_listen.host = htonl(host);
@@ -326,12 +304,7 @@ class RequestHeader : public EntityHeader
 			port = std::atoi((*(host_port.begin() + 1)).c_str());
 			this->_listen.port = htons(port);
 
-			if (*host_port.begin() == "0.0.0.0")
-			{
-				this->_listen.host = 0;
-				return (0);
-			}
-			if ((host = host_to_int(*host_port.begin())) == 0)
+			if ((host = host_to_int(*host_port.begin())) == 1)
 			{
 				return (1);
 			}
@@ -356,8 +329,9 @@ class RequestHeader : public EntityHeader
 		//내가 만든 것 request line을 파시할 때 사용
 		std::string	_method; //request method를 저장
 		std::string	_path; //request의 path를 저장
-		bool		_is_http; //HTTP/1.1인지 확인
+		std::string	_http_version; //HTTP버전을 확인
 		std::string	_body;
+		size_t		_body_size;
 
 		/*
 		//사용안할 것 같은 것

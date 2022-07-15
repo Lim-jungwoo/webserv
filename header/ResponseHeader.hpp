@@ -1,12 +1,12 @@
 #ifndef RESPONSEHEADER_HPP
 # define RESPONSEHEADER_HPP
 
-# include "EntityHeader.hpp"
+# include "RequestHeader.hpp"
 
-class ResponseHeader : public EntityHeader
+class ResponseHeader : public RequestHeader
 {
 	public:
-		ResponseHeader() { resetValues(); }
+		ResponseHeader() { }
 		ResponseHeader(const ResponseHeader& rh) { (void)rh; }
 		virtual ~ResponseHeader() {}
 
@@ -15,9 +15,49 @@ class ResponseHeader : public EntityHeader
 			(void)rh;
 			return (*this);
 		}
+
+		void	initErrorHtml()
+		{
+			setErrorHtml(Bad_Request, "400.html");
+			setErrorHtml(Forbidden, "403.html");
+			setErrorHtml(Not_Found, "404.html");
+			setErrorHtml(Method_Not_Allowed, "405.html");
+			setErrorHtml(Payload_Too_Large, "413.html");
+			setErrorHtml(Internal_Server_Error, "500.html");
+			changeHtmlRelativePath();
+		}
+
+		void	setErrorHtml(int code, std::string html)
+		{//code와 html의 이름을 받아서 error_html에 저장
+			this->_error_html[code] = html;
+		}
+
+		void	changeHtmlRelativePath()
+		{//error_html에 저장되어있는 파일이름을 상대경로로 바꿔준다.
+			for (std::map<int, std::string>::iterator it = this->_error_html.begin();
+				it != this->_error_html.end(); it++)
+			{
+				if (it->second == "400.html")
+					it->second = BAD_REQUEST_HTML;
+				else if (it->second == "403.html")
+					it->second = FORBIDDEN_HTML;
+				else if (it->second == "404.html")
+					it->second = NOT_FOUND_HTML;
+				else if (it->second == "405.html")
+					it->second = NOT_ALLOWED_HTML;
+				else if (it->second == "413.html")
+					it->second = PAYLOAD_TOO_LARGE_HTML;
+				else if (it->second == "500.html")
+					it->second = INTERNAL_SERVER_ERROR_HTML;
+				else
+					it->second = DEFAULT_HTML;
+			}
+		}
+
 	
 		void	initErrorMap()
-		{
+		{//errormap은 config파일에서 읽은 그대로 사용해야 한다.
+		//일단 내 맘대로 초기화했다.
 			this->_error_map[Continue] = "Continue";
 			this->_error_map[OK] = "OK";
 			this->_error_map[Created] = "Created";
@@ -25,33 +65,18 @@ class ResponseHeader : public EntityHeader
 			this->_error_map[Bad_Request] = "Bad Request";
 			this->_error_map[Forbidden] = "Forbidden";
 			this->_error_map[Not_Found] = "Not Found";
+			this->_error_map[Method_Not_Allowed] = "Not Allowed";
 			this->_error_map[Payload_Too_Large] = "Payload Too Large";
-			this->_error_map[Internal_Server_error] = "Internal Server Error";
+			this->_error_map[Internal_Server_Error] = "Internal Server Error";
 		}
 
-		std::string	getHeader(size_t size, const std::string& path, int code, std::string type,
-			const std::string& contentLocation, const std::string& lang)
+		std::string	getHeader()
 		{
 			std::string	header;
-			resetValues();
-			setValues(size, path, code, type, contentLocation, lang);
-			header = "HTTP/1.1 " + intToStr(code) + " " + getStatusMessage(code) + "\r\n";
-			header += writeHeader();
-			return (header);
-		}
-
-		std::string	notAllowed(const std::set<std::string>& methods, const std::string& path,
-			int code, const std::string& lang)
-		{//이거 어따쓰는 거?
-			std::string	header = "";
-			resetValues();
-			setValues(0, path, code, "", path, lang);
-			setAllow(methods);
-			if (code == Method_Not_Allowed)
-				header += "HTTP/1.1 405 Method Not Allowed\r\n";
-			else if (code == Payload_Too_Large)
-				header += "HTTP/1.1 413 Payload Too Large\r\n";
-			header += writeHeader();
+			initErrorMap();
+			setHeader();
+			header = this->_http_version + " " + intToStr(this->_code) + " " + getStatusMessage(this->_code) + "\r\n";
+			header += writeHeader(); 
 			return (header);
 		}
 
@@ -90,7 +115,7 @@ class ResponseHeader : public EntityHeader
 			
 			if (this->_www_authenticate != "")
 				header += "WWW-Authenticate: " + this->_www_authenticate + "\r\n";
-
+			header += "\r\n";
 			return (header);
 		}
 
@@ -101,34 +126,70 @@ class ResponseHeader : public EntityHeader
 			return ("There is no error code");
 		}
 
-		void	resetValues()
+		void	resetRequest()
 		{
-			this->_allow = "";
-			this->_content_language = "";
-			this->_content_length = "";
-			this->_content_location = "";
-			this->_content_type = "";
+			//general header reset
 			this->_date = "";
+			this->_connection = "";
+			this->_transfer_encoding = "";
+
+			//Entity header reset
+			this->_content_length = "";
+			this->_content_type = "";
+			this->_content_language = "";
+			this->_content_location = "";
+			this->_content_encoding = "";
+			this->_allow = "";
+
+			//request header reset
+			this->_listen.host = 0;
+			this->_listen.port = 0;
+			this->_host = "";
+			this->_user_agent = "";
+			this->_accept = "";
+			this->_accept_charset = "";
+			this->_accept_language = "";
+			this->_accept_encoding = "";
+			this->_origin = "";
+			this->_authorization = "";
+			this->_method = "";
+			this->_path = "";
+			this->_http_version = "";
+			this->_body = "";
+			this->_code = 0;
+
+			//response header reset
+			this->_server = "";
+			this->_www_authenticate = "";
+			this->_retry_after = "";
 			this->_last_modified = "";
 			this->_location = "";
-			this->_retry_after = "";
-			this->_server = "";
-			this->_transfer_encoding = "";
-			this->_www_authenticate = "";
-			this->initErrorMap();
+			this->_body_size = 0;
 		}
 
-		void	setValues(size_t size, const std::string& path, int code, std::string type,
-			const std::string& contentLocation, const std::string& lang)
-		{
-			//this->setAllow();
-			this->setContentLanguage(lang);
-			this->setContentLength(size);
-			this->setContentLocation(contentLocation);
-			this->setContentType(type, path);
+		void	setHeader()
+		{//response하는데 필요한 헤더들을 세팅한다.
+			//general header value
 			this->setDate();
-			this->setLastModified(path);
-			this->setLocation(code, path);
+			this->setConnection(this->_connection);
+			this->setTransferEncoding(this->_transfer_encoding);
+
+			//entity header
+			this->setContentLength(this->_path, this->_content_length);
+			this->setContentTypeLocation(this->_path, this->_content_type, this->_content_location);
+			this->setContentLanguage(this->_content_language);
+			this->setContentEncoding(this->_content_encoding);
+			// this->setAllow(config);
+			//config파일을 파싱한 것을 인자로 받아서 보내주어 세팅하도록 한다.
+
+			//request header는 request를 파싱할 때 모두 세팅되어있으므로 필요 없다.
+			
+			//response header
+			this->setServer();
+			this->setWwwAuthenticate(this->_code);
+			this->setRetryAfter(this->_code, DEFAULT_RETRY_AFTER);
+			this->setLastModified(this->_path);
+			this->setLocation(this->_code, this->_path);
 		}
 
 		void	setServer()
@@ -142,11 +203,6 @@ class ResponseHeader : public EntityHeader
 		{
 			if (code == Service_Unavailable || code == Too_Many_Requests || code == Moved_Permanently)
 				this->_retry_after = intToStr(sec);
-		}
-
-		void	setTransferEncoding()
-		{//transfer_encoding을 일단 압축이나 수정이 없는 버전으로 초기화
-			this->_transfer_encoding = "identity";
 		}
 
 		void	setLastModified(const std::string& path)
@@ -163,28 +219,28 @@ class ResponseHeader : public EntityHeader
 			}
 		}
 
-		void	setLocation(int code, const std::string& redirect)
+		void	setLocation(int code, const std::string& path)
 		{
 			if (code == Created || code / 100 == 3)
-				this->_location = redirect;
+				this->_location = path;
 		}
-		
-	private:
+	
+	// protected:
 		std::string					_server; //웹서버 정보
 		std::string					_www_authenticate; //사용자 인증이 필요한 자원을 요구할 시, 서버가 제공하는 인증 방식
 		std::string					_retry_after; //다시 접속하라고 알릴 때
-		std::string					_transfer_encoding; //사용자에게 entity를 안전하게 전송하기 위해 사용하는 인코딩 형식을 지정
 		std::string					_last_modified; //리소스의 마지막 수정 날짜
 		std::string					_location; //300번대 응답이나 201(created)응답일 때 어느 페이지로 이동할 지 알려주는 헤더
 		
 		std::map<int, std::string>	_error_map;
+		std::map<int, std::string>	_error_html;
 
 		//사용안할 것 같은 것
-		std::string	_access_control_allow_origin; //요청 Host와 응답 Host가 다를 때 CORS에러를 막기 위해 사용
-		std::string	_age; //시간이 얼마나 흘렀는지 초 단위로 알려줌
-		std::string	_referrer_policy; //서버 referrer정책을 알려줌
-		std::string	_proxy_authenticate; //요청한 서버가 프록시 서버인 경우 유저 인증을 위한 값
-		std::string	_set_cookie; //서버측에서 클라이언트에게 세션 쿠키 정보를 설정
+		// std::string	_access_control_allow_origin; //요청 Host와 응답 Host가 다를 때 CORS에러를 막기 위해 사용
+		// std::string	_age; //시간이 얼마나 흘렀는지 초 단위로 알려줌
+		// std::string	_referrer_policy; //서버 referrer정책을 알려줌
+		// std::string	_proxy_authenticate; //요청한 서버가 프록시 서버인 경우 유저 인증을 위한 값
+		// std::string	_set_cookie; //서버측에서 클라이언트에게 세션 쿠키 정보를 설정
 };
 
 #endif
