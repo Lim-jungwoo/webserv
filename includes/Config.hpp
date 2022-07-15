@@ -1,12 +1,12 @@
 #ifndef __CONFIG_HPP__
 # define __CONFIG_HPP__
 
-# include "./Server.hpp"
+# include "./ServerBlock.hpp"
 
 class	Config {
 
 	private:
-		std::vector<Server>				_server;
+		std::vector<ServerBlock>	_server;
 
 	public:
 		Config ();
@@ -14,12 +14,11 @@ class	Config {
 		~Config ();
 		Config						&operator= (Config &conf);
 
-		void						addServer (Server serv);
+		std::vector<ServerBlock>	getServerBlocks ();
+
+		void						addServerBlock (ServerBlock serv);
+
 		int							parse (std::string file);
-
-		std::vector<Server>			findMatchingServers (std::string request, std::string *host, std::string *port);
-		Server						selectServer (std::string request);
-
 };
 
 #endif

@@ -1,4 +1,5 @@
 #include "./includes/Config.hpp"
+#include "includes/Utils.hpp"
 
 int	main(int argc, char **argv) {
 	if (argc > 2)
@@ -8,15 +9,15 @@ int	main(int argc, char **argv) {
 
 	Config	conf;
 
-<<<<<<< HEAD
 	if (conf.parse(confFile))
 		return (printErr("invalid configuration file"));
-=======
-	conf.parse(confFile);
 
-	Server		srv = conf.selectServer("test.com");
-	Location	loc = srv.selectLocation();
+	std::cout << "parse done" << std::endl;
 
-	std::cout << "server name: " << srv.getName() << std::endl;
->>>>>>> ffde9148b2142388403fd100328b992929e0602e
+	std::vector<ServerBlock>	srvs = conf.getServerBlocks();
+
+	LocationBlock	loc = srvs[0].selectLocationBlock("/helloa");
+
+	std::cout << "LOCATION: " << std::endl;
+	std::cout << "- location uri: " << loc.getURI() << std::endl;
 }

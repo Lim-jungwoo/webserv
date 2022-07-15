@@ -4,8 +4,8 @@ CPPFLAGS		= -Wall -Wextra -Werror -std=c++98
 SRCS			= ./main.cpp \
 				  ./srcs/Utils.cpp \
 				  ./srcs/config/Config.cpp \
-				  ./srcs/config/Location.cpp \
-				  ./srcs/config/Server.cpp
+				  ./srcs/config/LocationBlock.cpp \
+				  ./srcs/config/ServerBlock.cpp
 OBJS			= $(SRCS:.cpp=.o)
 RM				= rm -f
 

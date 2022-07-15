@@ -12,18 +12,21 @@
 # define NONE			0
 # define EXACT			1
 # define PREFERENTIAL	2
-# define INVALID		3
 # define ON				1
 # define OFF			0
 
 int							printErr (std::string errMsg);
 std::vector<std::string>	split (std::string str, char delimiter = '\n');
-std::vector<std::string>	splitServerBlocks (std::string block);
+std::string					trim (std::string str);
+std::vector<std::string>	splitBlocks (std::string block, std::string type);
+//std::vector<std::string>	splitServerBlocks (std::string block);
 std::vector<std::string>	splitLocationBlocks (std::string block);
-std::pair<bool, size_t>		skipKey (std::string line, std::string str);
+std::pair<bool, size_t>		skipKey (std::string line, std::string str, std::string delimiter);
 bool						isNumber (std::string str);
-std::string					parseValue (std::string line, size_t pos);
+std::string					parseValue (std::string line, size_t pos, std::string delimiter);
 int							strToInt (std::string str);
+int							MiBToBits (std::string size);
+int							compareURIsWithWildcard (std::string URI, std::string request, int mod);
 
 
 #include <sys/types.h> //st_mtime
