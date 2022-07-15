@@ -335,6 +335,29 @@ int	isStrUpper(const std::string& str)
 	return (1);
 }
 
+int	make_html(const std::string& html_name, int code,
+	const std::string& code_str, const std::string& server_name)
+{
+	std::ofstream	html_file;
+	std::string		file_content;
+
+	html_file.open(html_name);
+	if (html_file.is_open() == false)
+	{
+		std::cerr << "HTML FILE MAKE ERROR\n";
+		return (Internal_Server_Error);
+	}
+	file_content += "<html>\n"
+	"<head><title>" + intToStr(code) + " " + code_str + "</title></head>\n"
+	"<body>\n<center><h1>" + intToStr(code) + " " + code_str + "</h1></center>\n"
+	"<hr><center>" + server_name + "</center>\n"
+	"</body>\n"
+	"</html>";
+	html_file << file_content;
+	html_file.close();
+	return (0);
+}
+
 // int	main()
 // {
 // 	std::string	str1 = "SHOW1234";

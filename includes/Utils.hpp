@@ -171,5 +171,8 @@ int	isStrAlpha(const std::string& str);
 int	isStrUpper(const std::string& str);
 //str이 대문자 알파벳으로 이루어져 있다면 1을 리턴, 아니면 0을 리턴
 
+int	make_html(const std::string& html_name, int code,
+	const std::string& code_str, const std::string& server_name);
+
 
 #endif
