@@ -1,10 +1,9 @@
 #ifndef RESPONSE_HPP
 # define RESPONSE_HPP
 
-// # include "../header/ResponseHeader.hpp"
-# include "../header/RequestHeader.hpp"
+# include "../header/ResponseHeader.hpp"
 
-class Response
+class Response : public ResponseHeader
 {
 	public:
 		Response() {}
@@ -13,136 +12,197 @@ class Response
 
 		Response&	operator=(const Response& response) { (void)response; return (*this); }
 
-		int	verify_method(std::string& request, int fd)
-		{//body는 여기서 찾아서 인자로 보내주자
-		//일단 간단하게 body는 path 뒤에 공백 다음
-		//요청마다 header를 만들어야 하고 에러가 발생했을 때에 errormap을 적절히 불러와야 한다.
-			//request의 method를 확인한다.
-			std::vector<std::string>	str_vec = split(request, ' ');
-			std::vector<std::string>::iterator	it = str_vec.begin();
-			std::string	path;
-			std::string	body;
-		
-			if (*it == static_cast<std::string>("GET"))
-			{
-				it++;
-				return (getMethod(*it, fd));
+		int	check_allow_method()
+		{
+			if (this->_possible_method.find(this->_method) != this->_possible_method.end()
+				&& this->_allow_method.find(this->_method) == this->_allow_method.end())
+			{//method를 알고는 있지만, allow가 되지 않았을 때
+				this->_code = Method_Not_Allowed;
+				return (1);
 			}
-			else if (*it == static_cast<std::string>("POST"))
-			{
-
-			}
-			else if (*it == static_cast<std::string>("DELETE"))
-			{
-				it++;
-				return (deleteMethod(*it, fd));
-			}
-			else if (*it == static_cast<std::string>("PUT"))
-			{
-				it++;
-				body = *(it + 1);
-				return (putMethod(*it, fd, body));
-			}
-			else
-			{
-				std::cout << *it << " is no executable method\n";
+			if (this->_possible_method.find(this->_method) == this->_possible_method.end())
+			{//method가 뭔지 모를 때
+				this->_code = Method_Not_Allowed;
+				return (1);
 			}
 			return (0);
 		}
 
-		int	getMethod(std::string& path, int fd)
+
+		int	verify_method(int fd)
+		{//요청마다 header를 만들어야 하고 에러가 발생했을 때에 errormap을 적절히 불러와야 한다.
+			//request의 method를 확인한다.
+			std::string	total_response;
+			int			write_size;
+
+			if (check_allow_method() == 1)
+			{
+				total_response = this->getHeader();
+			}
+			else if (this->_method == "GET")
+				total_response = this->getMethod(this->_path, fd);
+			else if (this->_method == "POST")
+				total_response = this->postMethod(this->_path, fd, this->_body);
+			else if (this->_method == "PUT")
+				total_response = this->putMethod(this->_path, fd, this->_body);
+			else if (this->_method == "DELETE")
+				total_response = this->deleteMethod(this->_path, fd);
+
+			std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
+			if (it != this->_error_html.end())
+			{
+				total_response += this->readHtml(it->second);
+			}
+
+			std::cout << YELLOW << "\n==========response=========\n" << total_response << RESET;
+			if ((write_size = ::send(fd, total_response.c_str(),
+				total_response.size(), 0)) == -1)
+			{
+				std::cerr << "RESPONSE SEND ERROR\n";
+				return (1);
+			}
+			return (0);
+		}
+
+		std::string	getMethod(std::string& path, int fd)
 		{
 			std::string			file_content = "";
 			std::ifstream		file;
 			std::stringstream	buffer;
-			int					write_size;
-
+			(void)fd;
 			std::cout << "GET METHOD PATH IS " << path << std::endl;
 			file.open(path.c_str(), std::ifstream::in);
 			if (file.is_open() == false)
 			{
 				std::cout << "FILE OPEN ERROR\n";
-				this->_code = Not_Found;
-				return (1);
+				this->setCode(Not_Found);
 			}
-			buffer << file.rdbuf();
-			file_content = buffer.str();
-			file.close();
-			if ((write_size = ::send(fd, file_content.c_str(),
-				file_content.size(), 0)) == -1)
+			else
 			{
-				std::cerr << "GET METHOD SEND ERROR\n";
-				this->_code = Internal_Server_error;
-				return (1);
+				this->setCode(OK);
+				buffer << file.rdbuf();
 			}
-			this->_code = OK;
-			return (0);
+			this->setContentLength(buffer.str().length());
+			file_content = this->getHeader();
+			file_content += buffer.str();
+			file.close();
+			return (file_content);
 		}
-		int	postMethod(std::string& path, int fd)
+		std::string	postMethod(const std::string& path, int fd, const std::string& body)
 		{
-			(void)path; (void)fd;
-			return (0);
+			(void)fd;
+			std::ofstream	file;
+			std::string		file_content;
+			if (pathIsFile(path))
+			{
+				std::cout << "post file is already exist, so add the content\n";
+				file.open(path.c_str(), std::ofstream::out | std::ofstream::app);
+				if (file.is_open() == false)
+				{
+					std::cerr << "FILE OPEN ERROR\n";
+					this->setCode(Forbidden);
+				}
+				file << body;
+				file.close();
+				this->setCode(OK);
+			}
+			else
+			{
+				file.open(path.c_str(), std::ofstream::out);
+				if (file.is_open() == false)
+				{
+					std::cerr << "FILE OPEN ERROR\n";
+					this->setCode(Not_Found);
+				}
+				file << body;
+				file.close();
+				this->setCode(Created);
+			}
+			file_content = this->getHeader();
+			return (file_content);
 		}
-		int	putMethod(std::string& path, int fd, std::string& body)
+		std::string	putMethod(const std::string& path, int fd, std::string& body)
 		{
 			//ofstream형은 open mode를 따로 작성하지 않으면
 			//기존에 파일이 존재했다면 삭제하는 trunc, 출력 전용을 뜻하는 out모드로 open된다.
 			(void)fd;
 			std::ofstream	file;
+			std::string		file_content;
 			if (pathIsFile(path))
 			{//file이 이미 존재하고 regular file일 때 파일을 갱신한다.
 				std::cout << "put file is already exist\n";
-				//이렇게만 작성해도 기존에 파일의 내용은 삭제된다.
 				file.open(path.c_str());
+				if (file.is_open() == false)
+				{
+					std::cerr << "FILE OPEN ERROR\n";
+					this->setCode(Forbidden);
+				}
+				else
+					this->setCode(OK);
 				file << body;
 				file.close();
-				this->_code = OK;
-				return (0);
 			}
 			else
 			{//file이 존재하지 않거나, file이 regular file이 아닐 때 작동
 				file.open(path.c_str());
 				if (file.is_open() == false)
 				{
-					this->_code = Not_Found;
-					return (1);
-					// return (403);
+					std::cerr << "file open fail\n";
+					this->setCode(Forbidden);
 				}
+				else
+					this->setCode(Created);
 				file << body;
 				file.close();
 			}
-			this->_code = Created;
-			// return (201);
-			return (0);
+			file_content = this->getHeader();
+			return (file_content);
 		}
-		int	deleteMethod(std::string& path, int fd)
+		std::string	deleteMethod(std::string& path, int fd)
 		{//일단 delete가 제대로 되지 않을 때는 생각하지 않고 무조건 0을 리턴하는 것으로 했다.
 			(void)fd;
+			std::string	file_content;
 			if (pathIsFile(path))
 			{
 				if (remove(path.c_str()) == 0)
-					this->_code = OK;
+					this->setCode(OK);
 				else
 				{
 					std::cerr << "file is regular file but remove fail\n";
-					this->_code = Forbidden;
+					this->setCode(Forbidden);
 				}
 			}
 			else
 			{
 				std::cerr << "file is not regular file so remove fail\n";
-				this->_code = 404;
+				this->setCode(Not_Found);
 			}
-			// if (_code == 403 || _code == 404)
-			// {
-			// 	_response = this->readHtml(_errorMap[_code]);
-			// }
-			//헤더를 만들어서 저장
-			return (0);
+			file_content = this->getHeader();
+			return (file_content);
+		}
+
+		std::string	readHtml(const std::string& path)
+		{//path가 REGULAR file이면 open하여 파일 내용을 리턴한다.
+		//path가 REGULAR file이 아니면 error_html을 보낸다.
+			std::ofstream			file;
+			std::stringstream		buf;
+
+			if (pathIsFile(path))
+			{
+				file.open(path.c_str(), std::ifstream::in);
+				if (file.is_open() == false)
+					return (ERROR_HTML);
+				buf << file.rdbuf();
+				file.close();
+				this->_content_type = "text/html";
+				return (buf.str());
+			}
+			else
+				return (ERROR_HTML);
 		}
 
 	private:
-		int	_code;
+		// int	_code;
 };
 
 #endif

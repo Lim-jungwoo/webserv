@@ -40,8 +40,16 @@ int							strToInt (std::string str);
 #include <limits> //numeric_limits
 
 #include <cstring> //memset
+#include <cctype> //isalpha
 
 # define CGI_BUF_SIZE 65536
+# define LISTEN_BUFFER_SIZE 1024
+# define READ_BUFFER_SIZE	1024
+
+# define END_TRANSMIT		4
+
+#define DEFAULT_RETRY_AFTER	10
+
 # define ERROR_HTML "<!DOCTYPE html>\n\
 	<html lang=\"en\">\n\
 	\t<meta charset=\"utf-8\">\n\
@@ -51,6 +59,26 @@ int							strToInt (std::string str);
 	\t<p>configuration file has no error page that fits error code</p>\n\
 	</body>\n\
 	</html>\n"
+
+# define BAD_REQUEST_HTML			"../server/html/Bad_Request.html"
+# define FORBIDDEN_HTML				"../server/html/Forbidden.html"
+# define NOT_ALLOWED_HTML			"../server/html/Not_Allowed.html"
+# define NOT_FOUND_HTML				"../server/html/Not_found.html"
+# define PAYLOAD_TOO_LARGE_HTML		"../server/html/Payload_Too_Large.html"
+# define INTERNAL_SERVER_ERROR_HTML	"../server/html/Internal_Server_Error.html"
+# define DEFAULT_HTML				"../server/html/index.html"
+
+# define RED "\e[31m"
+# define GREEN "\e[32m"
+# define YELLOW "\e[33m"
+# define BLUE "\e[34m"
+# define PINK "\e[35m"
+# define CYAN "\e[36m"
+# define WHITE "\e[37m"
+# define RESET "\e[0m"
+
+#define DEFAULT_PORT	8000
+
 
 enum	ErrorCode
 {
@@ -66,7 +94,7 @@ enum	ErrorCode
 	//GET과 HEAD는 필수 메소드이기 때문에 제거하면 안된다.
 	Payload_Too_Large = 413, //요청 엔티티가 서버에서 정의한 한계보다 클 때
 	//서버는 연결을 끊거나 Retry-After헤더필드로 돌려 보냄
-	Internal_Server_error = 500, //서버가 처리 방법을 모를 때
+	Internal_Server_Error = 500, //서버가 처리 방법을 모를 때
 
 	//사용할지 말지 모르는 것들
 	Moved_Permanently = 301, //요청한 리소스의 URI가 변경되었음을 의미
@@ -95,6 +123,12 @@ enum	BodyExist
 	Body_End = 3
 };
 
+enum	Connection
+{
+	Keep_Alive = 0,
+	Close = 1
+};
+
 typedef struct s_listen
 {
 	unsigned int	host;
@@ -102,16 +136,8 @@ typedef struct s_listen
 }	t_listen;
 
 
-unsigned int	host_to_int(std::string host);
-//string형인 host를 사용할 수 있도록 unsigned int형으로 바꿔준다.
-
 int	pathIsFile(const std::string& path);
 //파일이 REG(regular file)이면 1을 리턴하고 다른 경우에는 0을 리턴한다.
-
-std::string	readHtml(const std::string& path, std::string* type);
-//path가 REGULAR file이면 open하여 파일 내용을 리턴한다.
-//open이 실패하면 error_html을 리턴하고, open 성공시 type을 text/html로 바꾸고 파일 내용 리턴
-//path가 REGULAR file이 아니면 error_html을 리턴한다.
 
 //autoindex가 켜져 있을 때 string형으로 html문법을 구성한다.
 std::string	set_uri(const std::string& dirList, const std::string& dirName,
@@ -130,5 +156,20 @@ std::string	intToStr(int code);
 void	print_vec(std::vector<std::string> str_vec);
 
 int	compare_end(const std::string& s1, const std::string& s2);
+
+std::string	find_extension(std::string& file);
+std::string	find_file_name(const std::string& path);
+std::string	find_file_type(const std::string& file);
+std::string	erase_file_type(const std::string& file);
+
+std::string	str_trim_char(const std::string& str, char delete_char = ' ');
+std::string	find_header_value(const std::string& header);
+std::string	str_delete_rn(const std::string& str);
+
+int	isStrAlpha(const std::string& str);
+//str이 알파벳으로 이루어져 있다면 1을 리턴, 아니면 0을 리턴
+int	isStrUpper(const std::string& str);
+//str이 대문자 알파벳으로 이루어져 있다면 1을 리턴, 아니면 0을 리턴
+
 
 #endif

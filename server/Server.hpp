@@ -3,9 +3,6 @@
 
 # include "../response/Response.hpp"
 
-# define LISTEN_BUFFER_SIZE 1024
-# define READ_BUFFER_SIZE	1024
-
 class Server
 {
 	public:
@@ -29,17 +26,29 @@ class Server
 			std::cout << "request disconnected: " << request_fd << std::endl;
 			close(request_fd);
 			this->_request.erase(request_fd);
+			this->_request_end = 0;
+			this->_body_condition = No_Body;
+			this->_response.resetRequest();
+			this->_is_check_request_line = 0;
+			this->_body_start_pos = 0;
+			this->_body_end = 0;
+		}
+
+		void	check_connection(int request_fd)
+		{
+			if (this->_response._connection == "close")
+				this->disconnect_request(request_fd);
 		}
 
 		int	init_listen(const std::string& host_port)
 		{
-			if (this->_request_header.set_listen(host_port) == 1)
+			if (this->_response.setListen(host_port) == 1)
 			{
 				std::cerr << "init listen error\n";
 				return (1);
 			}
-			this->_listen.host = this->_request_header._listen.host;
-			this->_listen.port = this->_request_header._listen.port;
+			this->_listen.host = this->_response._listen.host;
+			this->_listen.port = this->_response._listen.port;
 			return (0);
 		}
 
@@ -69,7 +78,7 @@ class Server
 				std::cerr << "listen socket error\n";
 				return (1);
 			}
-			// fcntl(server_socket, F_SETFL, O_NONBLOCK);
+			fcntl(server_socket, F_SETFL, O_NONBLOCK);
 			this->_server_socket = server_socket;
 
 			int	kq = kqueue();
@@ -87,7 +96,6 @@ class Server
 		int	event_error(int fd)
 		{
 			if (fd == this->_server_socket)
-			// if (fd == static_cast<uintptr_t>(this->_server_socket))
 			{//server_socket이 에러라면 server를 종료하기 위해 -1을 리턴한다.
 				std::cerr << "server start but server socket error\n";
 				return (1);
@@ -116,10 +124,11 @@ class Server
 			this->_request[request_socket] = "";
 		}
 
-		void	event_read(int fd, int* body_exist)
+		void	event_read(int fd)
 		{//fd에 맞게 실행된다.
 		//저장되어있는 request에 맞는 fd가 없다면 아무 행동도 하지 않는다.
-			int	request_end = 0;
+			this->_request_end = 0;
+			int	check_request_line_ret = 0;
 			if (fd == this->_server_socket)
 			// if (fd == static_cast<uintptr_t>(this->_server_socket))
 			{//read event인데 server socket일 때는 accept이라는 뜻이므로 request_accept을 실행
@@ -127,66 +136,131 @@ class Server
 			}
 			else if (this->_request.find(fd) != this->_request.end())
 			{//일단 1024만큼만 읽는다.
-				char	buf[READ_BUFFER_SIZE];
+				char	buf[READ_BUFFER_SIZE] = {};
 				int	n;
+				if (this->_response._content_length != "" && this->_body_condition == Body_Start)
+				{//저장해놓은 content_length만큼만 받도록 한다.
+					if (this->_response._body_size >= READ_BUFFER_SIZE)
+					{
+						std::cerr << "content length is too big to receive\n";
+						this->_response.setCode(Payload_Too_Large);
+						return ;
+					}
+				}
 				n = ::recv(fd, buf, READ_BUFFER_SIZE - 1, 0);
 				buf[n] = '\0';
 				this->_request[fd] += buf;
-				
-				if (*body_exist == Body_Start && compare_end(this->_request[fd], "\r\n") == 0)
-				{
-					*body_exist = Body_End;
+				std::cout << RED <<  "============request==========\n" << this->_request[fd] << RESET;
+				if (this->_response._body_size != 0
+					&& this->_request[fd].length() - this->_body_start_pos >= this->_response._body_size)
+				{//body size만큼 입력 받았을 때
+					this->_request_end = 1;
+					this->_request[fd] = this->_request[fd].substr(0, this->_body_start_pos + this->_response._body_size);
 				}
-				if ((strncmp(this->_request[fd].c_str(), "POST", 4) == 0 ||
-					strncmp(this->_request[fd].c_str(), "PUT", 3) == 0) && *body_exist == No_Body)
+				
+				if (this->_request[fd] == "\r\n" && this->_is_check_request_line == 0)
+				{//아무 값도 없이 빈 칸만 왔다는 뜻
+					this->_request[fd].clear();
+					std::cout << "request is empty line\n";
+					return ;
+				}
+				if (compare_end(this->_request[fd], "\r\n") == 0 &&
+					this->_is_check_request_line == 0)
 				{
-					*body_exist = Body_Exist;
+					this->_is_check_request_line = 1;
+					std::cout << "check request line\n";
+					check_request_line_ret = this->_response.check_request_line(this->_request[fd]);
+					if (check_request_line_ret == 9)
+					{
+						std::cout << "request's http version is HTTP/0.9\n";
+						this->_request_end = 1;
+					}
+					else if (check_request_line_ret == 1)
+					{
+						std::cerr << "check request line error\n";
+						this->_response._http_version = "HTTP/1.1";
+						this->_response._content_location = "/";
+						this->_response.setCode(Bad_Request);
+						return ;
+					}
+				}
+				
+				if (this->_response._content_length == "" && this->_response._transfer_encoding == "chunked")
+				{//content_length가 없고, transfer_encoding이 chunked일 때 파일의 끝을 알리는 것이 들어올 때까지 계속 recv
+					if (this->_request[fd].at(this->_request[fd].length() - 1) == 4)
+					// if (compare_end(this->_request[fd], "\0\r\n") == 0)
+					{//파일의 끝을 받았을 때
+						this->_request[fd] = this->_request[fd].substr(0, this->_request[fd].length() - 1);
+						std::cout << "receive file end\n";
+						this->_request_end = 1;
+					}
+					else if (compare_end(this->_request[fd], "0\r\n\r\n") == 0)
+					{
+						this->_request[fd] = this->_request[fd].substr(0, this->_request[fd].length() - 5);
+						std::cout << "receive file end\n";
+						this->_request_end = 1;
+					}
+					else
+					{
+						printf("request end : %d\n", this->_request[fd].at(this->_request[fd].length() - 1));
+						std::cout << "request at : " << this->_request[fd].at(this->_request[fd].length() - 1) << std::endl;
+						return ;
+					}
+				}
+
+				if ((strncmp(this->_request[fd].c_str(), "POST", 4) == 0 ||
+					strncmp(this->_request[fd].c_str(), "PUT", 3) == 0) && this->_body_condition == No_Body)
+				{
+					std::cout << "!!!!!!!!!!body exist\n";
+					this->_body_condition = Body_Exist;
 				}
 				if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
-					&& *body_exist == No_Body) 
+					&& this->_body_condition == No_Body) 
 				{
-					request_end = 1;
+					this->_request_end = 1;
+					this->_body_condition = Body_End;
 				}
 				else if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
-					&& *body_exist != Body_End)
+					&& this->_body_condition == Body_Exist)
 				{
-					*body_exist = Body_Start;
+					std::cout << "!!!!!!!!!!!!!!!body start\n";
+					this->_body_condition = Body_Start;
+					this->_body_start_pos = this->_request[fd].length();
 				}
-				else
+
+				//check header
+				if ((this->_body_condition == Body_Start || this->_body_condition == Body_End)
+					&& this->_body_end == 0)
 				{
-					std::cout << "request : " << this->_request[fd] << std::endl;
-					std::cout << "compare_end fail\n";
+					std::cout << "received data from " << fd << ": " << this->_request[fd] << std::endl;
+					if (check_request_line_ret == 1 || check_request_line_ret == 9)
+						;
+					else if (this->_response.request_split(this->_request[fd], this->_body_condition) == 1)
+					{
+						std::cerr << "request split error\n";
+						this->_response.setCode(Bad_Request);
+					}
+					this->_body_end = 1;
 				}
+
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
 					if (n < 0)
+					{
 						std::cerr << "request read error\n";
-					this->_request[fd].clear();
-					disconnect_request(fd);
+						this->_response.setCode(Internal_Server_Error);
+					}
+					else
+						disconnect_request(fd);
 				}
-				else if (request_end == 1 || *body_exist == Body_End)
+				else if (this->_request_end == 1)
 				{
-					std::cout << "received data from " << fd << ": " << this->_request[fd] << std::endl;
-					if (this->_request_header.request_split(this->_request[fd]) == 1)
+					if (this->_body_start_pos != 0)
 					{
-						std::cerr << "request split error\n";
+						this->_response._body = this->_request[fd].substr(this->_body_start_pos,
+							this->_request[fd].length() - this->_body_start_pos);
 					}
-					else if (this->_request_header._method == "GET")
-					{
-						this->_response.getMethod(this->_request_header._path, fd);
-					}
-					else if (this->_request_header._method == "PUT")
-					{
-						this->_response.putMethod(this->_request_header._path, fd, this->_request_header._body);
-					}
-					else if (this->_request_header._method == "DELETE")
-					{
-						this->_response.deleteMethod(this->_request_header._path, fd);
-					}
-					this->_request[fd].clear();
-					sleep(1);
-					::send(fd, "end", 3, 0);
-					*body_exist = No_Body;
+					
 				}
 			}
 		}
@@ -198,27 +272,37 @@ class Server
 			if (it != this->_request.end())
 			{
 				(void)write_size;
-				// this->_request[fd].clear();
-				// sleep(2);
-				// ::send(fd, "end", 3, 0);
-				// if (this->_request[fd] != "")
-				// {
-				// 	if 
-				// }
-				//받은 메시지를 그대로 보냄
-				// if (this->_request[fd] != "")
-				// {
-				// 	if ((write_size = ::send(fd, this->_request[fd].c_str(),
-				// 		this->_request[fd].size(), 0)) == -1)
-				// 	{
-				// 		std::cerr << "request write error" << std::endl;
-				// 		disconnect_request(fd);
-				// 	}
-				// 	else
-				// 	{
-				// 		this->_request[fd].clear();
-				// 	}
-				// }
+				//HTTP/0.9이거나 HTTP/1.0일 때는 종료
+				if (this->_response._code == Bad_Request || this->_response._code == Internal_Server_Error
+					|| this->_response._code == Payload_Too_Large)
+				{
+					std::string	header = this->_response.getHeader();
+					std::map<int, std::string>::iterator	it = this->_response._error_html.find(this->_response._code);
+					if (it != this->_response._error_html.end())
+					{
+						header += this->_response.readHtml(it->second);
+					}
+					std::cout << YELLOW << "\n==========response=========\n" << header << RESET;
+					::send(fd, header.c_str(), header.size(), 0);
+					disconnect_request(fd);
+				}
+				if (this->_request_end == 1)
+				{
+					if (this->_response.verify_method(fd) == 1)
+						disconnect_request(fd);
+					if (this->_response._connection == "close")
+						disconnect_request(fd);
+					else
+					{
+						this->_request[fd].clear();
+						this->_request_end = 0;
+						this->_body_condition = No_Body;
+						this->_response.resetRequest();
+						this->_is_check_request_line = 0;
+						this->_body_start_pos = 0;
+						this->_body_end = 0;
+					}
+				}
 			}
 		}
 
@@ -226,7 +310,13 @@ class Server
 		{
 			int				new_events;
 			struct kevent*	curr_event;
-			int	body_pass = 0;
+			this->_body_condition = No_Body;
+			this->_body_end = 0;
+			this->_body_start_pos = 0;
+			this->_response.resetRequest();
+			this->_response.initPossibleMethod();
+			this->_response.initAllowMethod();
+			this->_response.initErrorHtml();
 			if (this->init_server_socket() == 1)
 				return (1);
 			while (1)
@@ -239,22 +329,25 @@ class Server
 					std::cerr << "kevent error\n";
 					return (1);
 				}
-
 				this->_change_list.clear();
 				//change_list에 등록되어 있는 event를 삭제한다.
 
 				for (int i = 0; i < new_events; i++)
 				{//event가 발생한 개수가 new_events이므로, 개수만큼 반복한다.
+					
 					curr_event = &this->_event_list[i];
 					if (curr_event->flags & EV_ERROR)
 					{//curr_event가 error일 때
 						if (event_error(curr_event->ident) == 1)
+						{
+							std::cerr << "kevent error occured so server is stop\n";
 							return (1);
+						}
 					}
 					else if (curr_event->filter == EVFILT_READ)
 					{//curr_event가 read일 때
 						// write(1, "read", 4);
-						event_read(curr_event->ident, &body_pass);
+						event_read(curr_event->ident);
 					}
 					else if (curr_event->filter == EVFILT_WRITE)
 					{
@@ -267,18 +360,22 @@ class Server
 		}
 	
 	private:
-		struct sockaddr_in	_server_addr; //server의 주소를 저장
-		int					_server_socket; //server_socket의 fd를 저장
-		t_listen			_listen; //listen할 host와 port를 저장
-		int					_kq; //kqueue를 통해 받은 fd를 저장
+		struct sockaddr_in			_server_addr; //server의 주소를 저장
+		int							_server_socket; //server_socket의 fd를 저장
+		t_listen					_listen; //listen할 host와 port를 저장
+		int							_kq; //kqueue를 통해 받은 fd를 저장
 		std::map<int, std::string>	_request; //request의 socket과 socket의 내용을 저장
 		std::vector<struct kevent>	_change_list; //kevent를 모두 저장
 		struct kevent				_event_list[LISTEN_BUFFER_SIZE]; //이벤트가 발생한 kevent를 저장
-		RequestHeader				_request_header;
 
-		std::string		file_content; //일단 get으로 file이 제대로 열리는 지 확인하는 용도
+		Response					_response;
+		int							_body_condition;
+		int							_request_end;
+		bool						_is_check_request_line;
+		size_t						_body_start_pos;
+		int							_body_end;
+		
 
-		Response	_response; //response
 };
 
 #endif

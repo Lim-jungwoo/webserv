@@ -31,8 +31,8 @@ class GeneralHeader
 			this->_date = str_date;
 		}
 
-		void	setConnection(const std::string& connection = "")
-		{
+		void	 setConnection(const std::string& connection = "")
+		{//connection이 없다면 default로 keep-alive
 			if (connection.length() != 0)
 			{
 				this->_connection = connection;
@@ -41,9 +41,16 @@ class GeneralHeader
 			this->_connection = "keep-alive";
 		}
 
+		void	setTransferEncoding(const std::string& transfer_encoding = "")
+		{//transfer_encoding가 없다면 압축이나 수정이 없는 버전으로 초기화
+			if (transfer_encoding == "")
+				this->_transfer_encoding = "identity";
+		}
+
 	// protected:
 		std::string	_date; //HTTP메시지가 만들어진 시각
 		std::string	_connection; //일반적으로 HTTP/1.1을 사용 ex) Connection: keep-alive
+		std::string	_transfer_encoding; //사용자에게 entity를 안전하게 전송하기 위해 사용하는 인코딩 형식을 지정
 		//keep-alive이거나 close인데 default로 keep-alive로 한다.
 
 		/*
