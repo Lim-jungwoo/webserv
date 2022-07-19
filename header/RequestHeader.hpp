@@ -320,6 +320,54 @@ class RequestHeader : public EntityHeader
 			return (0);
 		}
 
+		void	setHost(const std::string& host = "") { this->_host = host; }
+		void	setUserAgent(const std::string& user_agent = "") { this->_user_agent = user_agent; }
+		void	setAccept(const std::string& accept = "") { this->_accept = accept; }
+		void	setAcceptCharset(const std::string& charset = "") { this->_accept_charset = charset; }
+		void	setAcceptLanguage(const std::string& lang = "") { this->_accept_language = lang; }
+		void	setOrigin(const std::string& origin = "") { this->_origin = origin; }
+		void	setAuthorization(const std::string& authorization = "") { this->_authorization = authorization; }
+		void	setMethod(const std::string& method = "") { this->_method = method; }
+		void	setPath(const std::string& path = "") { this->_path = path; }
+		void	setHttpVersion(const std::string& http_version = "") { this->_http_version = http_version; }
+		void	setBody(const std::string& body = "") { this->_body = body; }
+		void	setBodySize(const size_t& body_size = 0) { this->_body_size = body_size; }
+		void	setRoot(const std::string& root = "") { this->_root = root; }
+
+		t_listen	getListen() { return (this->_listen); }
+		std::string	getHost() { return (this->_host); }
+		std::string	getUserAgent() { return (this->_user_agent); }
+		std::string	getAccept() { return (this->_accept); }
+		std::string	getAcceptCharset() { return (this->_accept_charset); }
+		std::string	getAcceptLanguage() { return (this->_accept_language); }
+		std::string	getAcceptEncoding() { return (this->_accept_encoding); }
+		std::string	getOrigin() { return (this->_origin); }
+		std::string	getAuthorization() { return (this->_authorization); }
+		std::string	getMethod() { return (this->_method); }
+		std::string	getPath() { return (this->_path); }
+		std::string	getHttpVersion() { return (this->_http_version); }
+		std::string	getBody() { return (this->_body); }
+		size_t		getBodySize() { return (this->_body_size); }
+		std::string	getRoot() { return (this->_root); }
+
+		void	printRequestHeader()
+		{
+			std::cout << "listen host: " << this->getListen().host << ", port: " << this->getListen().port << std::endl;
+			std::cout << "server host: " << this->_host << std::endl;
+			std::cout << "user agent: " << this->_user_agent << std::endl;
+			std::cout << "accept: " << this->_accept << std::endl;
+			std::cout << "accept charset: " << this->_accept_charset << std::endl;
+			std::cout << "accept language: " << this->_accept_language << std::endl;
+			std::cout << "origin: " << this->_origin << std::endl;
+			std::cout << "authorization: " << this->_authorization << std::endl;
+			std::cout << "method: " << this->_method << std::endl;
+			std::cout << "path: " << this->_path << std::endl;
+			std::cout << "http version: " << this->_http_version << std::endl;
+			std::cout << "body: " << this->_body << std::endl;
+			std::cout << "body size: " << this->_body_size << std::endl;
+			std::cout << "root: " << this->_root << std::endl;
+		}
+
 	public:
 	//일단 임시로 public으로 바꾼다.
 		t_listen	_listen;
@@ -340,7 +388,7 @@ class RequestHeader : public EntityHeader
 		std::string	_http_version; //HTTP버전을 확인
 		std::string	_body;
 		size_t		_body_size;
-		std::string					_root;
+		std::string	_root;
 
 		/*
 		//사용안할 것 같은 것

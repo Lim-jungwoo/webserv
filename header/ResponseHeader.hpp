@@ -240,6 +240,25 @@ class ResponseHeader : public RequestHeader
 			if (code == Created || code / 100 == 3)
 				this->_location = path;
 		}
+
+		std::string					getServer() { return (this->_server); }
+		std::string 				getRetryAfter() { return (this->_retry_after); }
+		std::string					getLastModified() { return (this->_last_modified); }
+		std::string					getLocation() { return (this->_location); }
+		std::map<int, std::string>	getErrorMap() { return (this->_error_map); }
+		std::map<int, std::string>	getErrorHtml() { return (this->_error_html); }
+
+		void	printResponseHeader()
+		{
+			std::cout << "server name: " << this->getServer() << std::endl;
+			std::cout << "retry after: " << this->getRetryAfter() << std::endl;
+			std::cout << "last modified: " << this->getLastModified() << std::endl;
+			std::cout << "location: " << this->getLocation() << std::endl;
+			std::cout << "error map: ";
+			print_errmap(this->getErrorMap());
+			std::cout << "error html: ";
+			print_errmap(this->getErrorHtml());
+		}
 	
 	// protected:
 		std::string					_server; //웹서버 정보

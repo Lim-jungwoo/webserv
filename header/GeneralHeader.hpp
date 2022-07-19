@@ -47,6 +47,17 @@ class GeneralHeader
 				this->_transfer_encoding = "identity";
 		}
 
+		std::string	getDate() { return (this->_date); }
+		std::string	getConnection() { return (this->_connection); }
+		std::string	getTransferEncoding() { return (this->_transfer_encoding); }
+
+		void	printGeneralHeader()
+		{
+			std::cout << "date: " << this->getDate() << std::endl;
+			std::cout << "connection: " << this->getConnection() << std::endl;
+			std::cout << "transfer encoding: " << this->getTransferEncoding() << std::endl;
+		}
+
 	// protected:
 		std::string	_date; //HTTP메시지가 만들어진 시각
 		std::string	_connection; //일반적으로 HTTP/1.1을 사용 ex) Connection: keep-alive

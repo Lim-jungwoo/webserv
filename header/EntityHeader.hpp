@@ -125,19 +125,38 @@ class EntityHeader : public GeneralHeader
 		}
 
 		void	setAllowMethod(const std::string& method)
-		{
-			this->_allow_method.insert(method);
-		}
+		{ this->_allow_method.insert(method); }
 
 		void	initAllowMethod(std::vector<std::string> allow_method)
 		{
 			for (std::vector<std::string>::iterator it = allow_method.begin();
 				it != allow_method.end(); it++)
 				this->setAllowMethod(*it);
-			// this->_allow_method.insert("GET");
-			// this->_allow_method.insert("POST");
-			// this->_allow_method.insert("PUT");
-			// this->_allow_method.insert("DELETE");
+		}
+
+		std::string				getContentLength() { return (this->_content_length); }
+		std::string				getContentType() { return (this->_content_type); }
+		std::string				getContentLanguage() { return (this->_content_language); }
+		std::string				getContentLocation() { return (this->_content_location); }
+		std::string				getContentEncoding() { return (this->_content_encoding); }
+		std::string				getAllow() { return (this->_allow); }
+		int						getCode() { return (this->_code); }
+		std::set<std::string>	getAllowMethod() { return (this->_allow_method); }
+		std::set<std::string>	getPossibleMethod() { return (this->_possible_method); }
+
+		void	printEntityHeader()
+		{
+			std::cout << "content length: " << this->getContentLength() << std::endl;
+			std::cout << "content type: " << this->getContentType() << std::endl;
+			std::cout << "content language: " << this->getContentLanguage() << std::endl;
+			std::cout << "content location: " << this->getContentLocation() << std::endl;
+			std::cout << "content encoding: " << this->getContentEncoding() << std::endl;
+			std::cout << "allow: " << this->getAllow() << std::endl;
+			std::cout << "code: " << this->getCode() << std::endl;
+			std::cout << "allow method: ";
+			print_set(this->getAllowMethod());
+			std::cout << "possible method: ";
+			print_set(this->getPossibleMethod());
 		}
 	
 	// protected:

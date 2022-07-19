@@ -174,9 +174,14 @@ int							Config::initServer(const std::string& conf_file)
 		this->_server_vec[i]._client_max_body_size = this->_server_block[i].getClntSize();
 		std::cout << "client max body size : " << this->_server_vec[i]._client_max_body_size << std::endl;
 
-		//autoindex, index를 초기화
+		//autoindex를 초기화
 		this->_server_vec[i]._auto_index = this->_server_block[i].getAutoindex();
 		std::cout << "auto index : " << (this->_server_vec[i]._auto_index == true ? "true" : "false") << std::endl;
+
+		//index를 초기화
+		this->_server_vec[i]._index = this->_server_block[i].getIndex();
+		std::cout << "index : ";
+		print_vec(this->_server_vec[i]._index);
 
 		//server block의 location을 server로 넘겨준다
 		for (size_t location_num = 0; location_num < this->_server_block[i].getLocationBlocks().size();

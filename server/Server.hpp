@@ -21,8 +21,12 @@ class Server
 		bool						_is_check_request_line;
 		size_t						_body_start_pos;
 		int							_body_end;
+
+		//configuation file 관련
 		size_t						_client_max_body_size;
-		bool						_auto_index;
+		int							_auto_index;
+		std::vector<std::string>	_index;
+		std::string					_cgi;
 
 		std::vector<LocationBlock>				_locations;
 
@@ -134,16 +138,16 @@ class Server
 				this->_response.initAllowMethod(location_block.getMethods());
 
 			//redirect???
+			// location_block.getRedirect()
 
 			if (location_block.getRoot() != ".")
 				this->_response._root = location_block.getRoot();
 			if (location_block.getAutoindex() != DEFAULT_AUTOINDEX)
 				this->_auto_index = location_block.getAutoindex();
-			// if (location_block.getIndex().empty() == false)
-				// this->_
-			// if (location_block.getCGI() != "")
-			// 	this->
-
+			if (location_block.getIndex().empty() == false)
+				this->_index = location_block.getIndex();
+			if (location_block.getCGI() != "")
+				this->_cgi = location_block.getCGI();
 		}
 
 		void	event_read(int fd)
@@ -216,8 +220,10 @@ class Server
 						LocationBlock	test = this->selectLocationBlock(this->_response._path);
 						if (test.getIsEmpty() == false)
 						{//값을 가지고 있는 location block을 찾았을 경우에 이 location block의 변수들을 모두 넣어주면 된다.
-							test.print_location_block();
+							// test.print_location_block();
 							this->locationToServer(test);
+							this->_response.printEntityHeader();
+							this->_response.printGeneralHeader();
 						}
 					}
 				}

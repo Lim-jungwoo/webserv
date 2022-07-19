@@ -201,6 +201,16 @@ class Response : public ResponseHeader
 				return (ERROR_HTML);
 		}
 
+		void	printResponseValue()
+		{
+			std::cout << WHITE;
+			this->printGeneralHeader();
+			this->printEntityHeader();
+			this->printRequestHeader();
+			this->printResponseHeader();
+			std::cout << RESET;
+		}
+
 	private:
 		// int	_code;
 };
