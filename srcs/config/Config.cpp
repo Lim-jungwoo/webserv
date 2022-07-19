@@ -12,7 +12,6 @@ std::vector<ServerBlock>	Config::getServerBlocks () { return (_server_block); }
 
 void						Config::addServerBlock (ServerBlock server_block) { _server_block.push_back(server_block); }
 
-/* function that parses the configuration file */
 int							Config::parse (std::string file) {
 	std::string					buf;
 	std::ifstream				f(file);

@@ -1,12 +1,10 @@
 #include "./../includes/Utils.hpp"
 
-/* function that prints an error message and returns 1. */
 int							printErr (std::string errMsg) {
 	std::cerr << "Error: " << errMsg << std::endl;
 	return (1);
 }
 
-/* function that splits a string by a delimiter. */
 std::vector<std::string>	split (std::string str, char delimiter) {
 	size_t						startPos = 0, endPos;
 	std::vector<std::string>	ret;
@@ -53,7 +51,6 @@ size_t						skipBlock (std::string block) {
 	return (i);
 }
 
-/* function that splits a config file into server blocks. */
 std::vector<std::string>	splitBlocks (std::string block, std::string type) {
 	std::vector<std::string>	ret;
 	size_t						startPos = 0, endPos = 0;
@@ -87,7 +84,6 @@ std::vector<std::string>	splitBlocks (std::string block, std::string type) {
 	return (ret);
 }
 
-/* function that splits server block into location blocks. */
 std::vector<std::string>	splitLocationBlocks (std::string block) {
 	std::cout << "block: " << block << std::endl;
 	std::vector<std::string>	ret;
@@ -115,7 +111,6 @@ std::vector<std::string>	splitLocationBlocks (std::string block) {
 	return (ret);
 }
 
-/* function that returns the position after skipping [key]. (if [key] is not found, bool = false.) */
 std::pair<bool, size_t>		skipKey (std::string line, std::string key, std::string delimiter) {
 	size_t	pos = line.find(key, 0);
 	size_t	scPos = line.find(delimiter, pos);
@@ -137,7 +132,6 @@ std::pair<bool, size_t>		skipKey (std::string line, std::string key, std::string
 	return (std::make_pair(true, pos));
 }
 
-/* function that checks if [str] is a number. */
 bool						isNumber (std::string str) {
 	for (size_t i = 0; i < str.size(); i++) {
 		if (!std::isdigit(str[i]))
@@ -146,13 +140,11 @@ bool						isNumber (std::string str) {
 	return (1);
 }
 
-/* function that parses the value. ([pos] = position returned in the above ::skipKey()) */
 std::string					parseValue (std::string line, size_t pos, std::string delimiter) {
 	size_t	scPos = line.find(delimiter, pos);
 	return (trim(line.substr(pos, scPos - pos)));
 }
 
-/* function that converts a string into an int. */
 int							strToInt (std::string str) {
 	int					ret;
 	std::stringstream	ssInt(str);
@@ -173,9 +165,6 @@ std::string	intToStr (int code)
 int			MiBToBits (std::string size) {
 	if (!isNumber(size.substr(0, size.size() - 1)))
 		return (-1);
-
-/*	if (size[size.size() - 1] != 'm')
-		return (-1);*/
 
 	return (strToInt(size.substr(0, size.size() - 1)) * 8388608);
 }
