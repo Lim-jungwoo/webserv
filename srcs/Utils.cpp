@@ -89,6 +89,7 @@ std::vector<std::string>	splitBlocks (std::string block, std::string type) {
 
 /* function that splits server block into location blocks. */
 std::vector<std::string>	splitLocationBlocks (std::string block) {
+	std::cout << "block: " << block << std::endl;
 	std::vector<std::string>	ret;
 	size_t						blockPos = 0, pos = 0;
 	size_t						nextLocPos = 0, closeBracketPos = 0;
@@ -119,13 +120,16 @@ std::pair<bool, size_t>		skipKey (std::string line, std::string key, std::string
 	size_t	pos = line.find(key, 0);
 	size_t	scPos = line.find(delimiter, pos);
 	size_t	nlPos = line.find("\n", pos);
+	size_t	locPos = line.find("location", 0);
+
+	if (locPos < pos)
+		return (std::make_pair(false, pos));
 
 	if (pos == std::string::npos)
 		return (std::make_pair(false, pos));
 
-	if (scPos == std::string::npos || nlPos == std::string::npos || scPos > nlPos) {
+	if (scPos == std::string::npos || nlPos == std::string::npos || scPos > nlPos)
 		return (std::make_pair(false, pos));
-	}
 
 	pos += key.length();
 	while (std::isspace(line[pos]))

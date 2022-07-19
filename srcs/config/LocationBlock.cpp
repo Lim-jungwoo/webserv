@@ -136,12 +136,14 @@ int							LocationBlock::parseClntSize () {
 
 int							LocationBlock::parseMethods () {
 	std::string				methods;
-	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{");
+	std::pair<bool, size_t>	res = skipKey(_block, "allow_methods", ";");
+//	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{", "location");
 
 	if (res.first == false)
 		return (0);
 
-	methods = parseValue(_block, res.second, "{");
+	methods = parseValue(_block, res.second, ";");
+//	methods = parseValue(_block, res.second, "{");
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
