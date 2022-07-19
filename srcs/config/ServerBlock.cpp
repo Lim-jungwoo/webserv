@@ -221,13 +221,11 @@ int							ServerBlock::parseRoot () {
 int							ServerBlock::parseMethods () {
 	std::string				methods;
 	std::pair<bool, size_t>	res = skipKey(_block, "allow_methods", ";");
-//	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{");
 
 	if (res.first == false)
 		return (0);
 
 	methods = parseValue(_block, res.second, ";");
-//	methods = parseValue(_block, res.second, "{");
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
@@ -292,24 +290,6 @@ int							ServerBlock::parse () {
 		_locations[i].parse();
 		this->_locations[i].setURI(this->_root + this->_locations[i].getURI());
 	}
-
-	
-
-/*	std::cout << "host: " << getHost() << ", port: " << getPort() << std::endl;
-	std::cout << "server name: " << getName() << std::endl;
-	std::cout << "error pages: " << std::endl;
-	for (size_t i = 0; i < _errPages.size(); i++)
-		std::cout << "- " << _errPages[i] << std::endl;
-	std::cout << "client size: " << getClntSize() << std::endl;
-	std::cout << "root: " << getRoot() << std::endl;
-	std::cout << "methods: " << std::endl;
-	for (size_t i = 0; i < _methods.size(); i++)
-		std::cout << "- " << _methods[i] << std::endl;
-	std::cout << "autoindex: " << (_autoindex ? "on" : "off") << std::endl;
-	std::cout << "indexes: " << std::endl;
-	for (size_t i = 0; i < _index.size(); i++)
-		std::cout << "- " << _index[i] << std::endl;
-	std::cout << std::endl;*/
 
 	return (0);
 }

@@ -137,13 +137,11 @@ int							LocationBlock::parseClntSize () {
 int							LocationBlock::parseMethods () {
 	std::string				methods;
 	std::pair<bool, size_t>	res = skipKey(_block, "allow_methods", ";");
-//	std::pair<bool, size_t>	res = skipKey(_block, "limit_except", "{", "location");
 
 	if (res.first == false)
 		return (0);
 
 	methods = parseValue(_block, res.second, ";");
-//	methods = parseValue(_block, res.second, "{");
 	setMethods(split(methods, ' '));
 
 	if (_methods.empty())
@@ -233,23 +231,9 @@ int							LocationBlock::parse () {
 
 	this->_is_empty = 0;
 
-/*	std::cout << "modifier: " << _mod << ", uri: " << _uri << std::endl;
-	std::cout << "client size: " << _clntSize << std::endl;
-	std::cout << "methods: " << std::endl;
-	for (size_t i = 0; i < _methods.size(); i++)
-		std::cout << "- " << _methods[i] << std::endl;
-	parseRoot();
-	std::cout << "root: " << _root << std::endl;
-	std::cout << "autoindex: " << (_autoindex ? "on" : "off") << std::endl;
-	std::cout << "indexes: " << std::endl;
-	for (size_t i = 0; i < _index.size(); i++)
-		std::cout << "- " << _index[i] << std::endl;
-	std::cout << std::endl;*/
-
 	return (0);
 }
 
-//location block print
 void	LocationBlock::print_location_block()
 {
 	std::cout << "location_block : " << this->_block << std::endl;
