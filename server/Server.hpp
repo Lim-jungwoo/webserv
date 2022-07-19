@@ -6,122 +6,144 @@
 class Server
 {
 	public:
-		Server() {}
+	// private:
+		struct sockaddr_in			_server_addr; //server의 주소를 저장
+		int							_server_socket; //server_socket의 fd를 저장
+		t_listen					_listen; //listen할 host와 port를 저장
+		int							_kq; //kqueue를 통해 받은 fd를 저장
+		std::map<int, std::string>	_request; //request의 socket과 socket의 내용을 저장
+		std::vector<struct kevent>	_change_list; //kevent를 모두 저장
+		struct kevent				_event_list[LISTEN_BUFFER_SIZE]; //이벤트가 발생한 kevent를 저장
+
+		Response					_response;
+		int							_body_condition;
+		int							_request_end;
+		bool						_is_check_request_line;
+		size_t						_body_start_pos;
+		int							_body_end;
+		size_t						_client_max_body_size;
+		bool						_auto_index;
+
+		std::vector<LocationBlock>				_locations;
+
+	public:
+		Server();
 		Server(const Server& server);
-		~Server() {}
+		~Server();
 
 		Server&	operator=(const Server& server);
 
-		void	change_events(std::vector<struct kevent>& change_list, uintptr_t ident,
-			int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata)
-		{//인자로 받은 값들을 EV_SET을 이용해 kevent구조체 변수인 temp event를 초기화시키고,
+		//인자로 받은 값들을 EV_SET을 이용해 kevent구조체 변수인 temp event를 초기화시키고,
 		//change_list에 temp event를 추가한다.
-			struct kevent	temp_event;
-			EV_SET(&temp_event, ident, filter, flags, fflags, data, udata);
-			change_list.push_back(temp_event);
-		}
+		void	change_events(std::vector<struct kevent>& change_list, uintptr_t ident,
+			int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata);
 
-		void	disconnect_request(int request_fd)
+
+		void	disconnect_request(int request_fd);
+
+		void	check_connection(int request_fd);
+
+		int	init_listen(const std::string& host_port);
+
+		int	init_server_socket();
+
+		int	event_error(int fd);
+
+		void	request_accept();
+
+		LocationBlock				selectLocationBlock (std::string requestURI) const
 		{
-			std::cout << "request disconnected: " << request_fd << std::endl;
-			close(request_fd);
-			this->_request.erase(request_fd);
-			this->_request_end = 0;
-			this->_body_condition = No_Body;
-			this->_response.resetRequest();
-			this->_is_check_request_line = 0;
-			this->_body_start_pos = 0;
-			this->_body_end = 0;
-		}
+			std::vector<LocationBlock>	locationBlocks;
+			std::vector<std::string>	requestURIvec;
+			size_t						max = 0,ret = 0;
 
-		void	check_connection(int request_fd)
-		{
-			if (this->_response._connection == "close")
-				this->disconnect_request(request_fd);
-		}
+			// first, split the request URI by '/'
 
-		int	init_listen(const std::string& host_port)
-		{
-			if (this->_response.setListen(host_port) == 1)
-			{
-				std::cerr << "init listen error\n";
-				return (1);
-			}
-			this->_listen.host = this->_response._listen.host;
-			this->_listen.port = this->_response._listen.port;
-			return (0);
-		}
-
-		int	init_server_socket()
-		{//에러가 발생했을 때 에러 메시지를 출력하고 1을 리턴, 정상 작동이면 0을 리턴
-		//server socket을 만들고, bind, listen, kqueue를 하고,
-		//바로 change_events를 통해 event를 등록한다.
-			int	server_socket = socket(PF_INET, SOCK_STREAM, 0);
-			if (server_socket == -1)
-			{
-				std::cerr << "init server socket error\n";
-				return (1);
-			}
-			std::memset(&this->_server_addr, 0, sizeof(this->_server_addr));
-			this->_server_addr.sin_family = AF_INET;
-			this->_server_addr.sin_addr.s_addr = this->_listen.host;
-			this->_server_addr.sin_port = this->_listen.port;
-			std::cout << "host : " << this->_listen.host << ", port : " << this->_listen.port << std::endl;
-			if (bind(server_socket, (struct sockaddr*)&this->_server_addr,
-				sizeof(this->_server_addr)) == -1)
-			{
-				std::cerr << "bind socket error\n";
-				return (1);
-			}
-			if (listen(server_socket, LISTEN_BUFFER_SIZE) == -1)
-			{
-				std::cerr << "listen socket error\n";
-				return (1);
-			}
-			fcntl(server_socket, F_SETFL, O_NONBLOCK);
-			this->_server_socket = server_socket;
-
-			int	kq = kqueue();
-			if (kq == -1)
-			{
-				std::cerr << "init kqueue error\n";
-				return (1);
-			}
-			this->_kq = kq;
-			this->change_events(this->_change_list, this->_server_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
-			std::cout << "server start\n"; //일단 server 시작했음을 알리자
-			return (0);
-		}
-
-		int	event_error(int fd)
-		{
-			if (fd == this->_server_socket)
-			{//server_socket이 에러라면 server를 종료하기 위해 -1을 리턴한다.
-				std::cerr << "server start but server socket error\n";
-				return (1);
-			}
+			std::cout << "requestURI : " << requestURI << std::endl;
+			
+			if (requestURI[0] == '/')
+				requestURIvec = split(&requestURI[1], '/');
 			else
-			{//request socket이 에러라면 request의 연결을 끊는다.
-				std::cerr << "server start but client socket error\n";
-				disconnect_request(fd);
+				requestURIvec = split(requestURI, '/');
+
+			// add '/' to each of the string in the vector
+			for (size_t i = 1; i < requestURIvec.size(); i++)
+				requestURIvec[i] = "/" + requestURIvec[i];
+
+			// look for locations whose modifier is '='; the request URI must match the location's URI
+			for (size_t i = 0; i < _locations.size(); i++) {
+				if (_locations[i].getMod() == EXACT) {
+					if (_locations[i].getURI() == requestURI)
+						return (_locations[i]);
+					else
+						break ;
+				}
 			}
-			return (0);
+
+			// look for locations who don't have modifiers or '~'; the location's URI must contain the request URI
+			for (size_t i = 0; i < _locations.size(); i++) {
+				if (_locations[i].getMod() == NONE || _locations[i].getMod() == PREFERENTIAL) {
+					std::cout << "locations uri : " << this->_locations[i].getURI() << ", requestURI first : " << requestURIvec[0] << std::endl;
+					if (_locations[i].getURI().find(requestURIvec[0], 0) != std::string::npos) {
+						// first, check if the two URIs match
+						if (_locations[i].getURI() == requestURI)
+							locationBlocks.push_back(_locations[i]);
+						// then, check for the level of the request URI
+						else if (requestURIvec.size() == 1)
+							locationBlocks.push_back(_locations[i]);
+						else {
+							// if the request URI has more than one slashes (nested), get the nested locations and compare their URIs
+							std::vector<LocationBlock>	nested = _locations[i].getLocationBlocks();
+							for (size_t j = 0; j < nested.size(); j++) {
+								if (!compareURIsWithWildcard(nested[j].getURI(), requestURIvec[1], nested[j].getMod()))
+									locationBlocks.push_back(nested[j]);
+							}
+						}
+					}
+				}
+			}
+
+			// if no location was found, return empty location
+			if (locationBlocks.empty())
+			{
+				std::cout << PINK << "no location was found so return empty location" << RESET << std::endl;
+				return (LocationBlock());
+			}
+
+			// if there are more than one locations selected, return the location with longest URI
+			max = locationBlocks[ret].getURI().length();
+			for (size_t i = 1; i < locationBlocks.size(); i++) {
+				if (locationBlocks[i].getURI().size() > max) {
+					max = locationBlocks[i].getURI().length();
+					ret = i;
+				}
+			}
+
+			return (locationBlocks[ret]);
 		}
 
-		void	request_accept()
-		{//accept이 실패했다고 서버를 종료하는 것은 아닌 것 같다.
-			int	request_socket;
-			if ((request_socket = accept(this->_server_socket, NULL, NULL)) == -1)
-			{//accept이 실패했을 때
-				std::cerr << "server start but request socket accept error\n";
+		void	locationToServer(LocationBlock location_block)
+		{
+			if (location_block.getIsEmpty() == true)
 				return ;
-			}
-			std::cout << "accept new request: " << request_socket << std::endl;
-			fcntl(request_socket, F_SETFL, O_NONBLOCK);
+			if (location_block.getURI() != "")
+				this->_response._path = location_block.getURI();
+			if (location_block.getClntSize() != READ_BUFFER_SIZE)
+				this->_client_max_body_size = location_block.getClntSize();
+			if (location_block.getMethods().empty() == false)
+				this->_response.initAllowMethod(location_block.getMethods());
 
-			change_events(this->_change_list, request_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
-			change_events(this->_change_list, request_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-			this->_request[request_socket] = "";
+			//redirect???
+
+			if (location_block.getRoot() != ".")
+				this->_response._root = location_block.getRoot();
+			if (location_block.getAutoindex() != DEFAULT_AUTOINDEX)
+				this->_auto_index = location_block.getAutoindex();
+			// if (location_block.getIndex().empty() == false)
+				// this->_
+			// if (location_block.getCGI() != "")
+			// 	this->
+
 		}
 
 		void	event_read(int fd)
@@ -136,11 +158,12 @@ class Server
 			}
 			else if (this->_request.find(fd) != this->_request.end())
 			{//일단 1024만큼만 읽는다.
+				std::cout << "read start\n";
 				char	buf[READ_BUFFER_SIZE] = {};
 				int	n;
 				if (this->_response._content_length != "" && this->_body_condition == Body_Start)
 				{//저장해놓은 content_length만큼만 받도록 한다.
-					if (this->_response._body_size >= READ_BUFFER_SIZE)
+					if (this->_response._body_size >= this->_client_max_body_size)
 					{
 						std::cerr << "content length is too big to receive\n";
 						this->_response.setCode(Payload_Too_Large);
@@ -182,6 +205,20 @@ class Server
 						this->_response._content_location = "/";
 						this->_response.setCode(Bad_Request);
 						return ;
+					}
+
+					//check_request_line으로 parsing한 path를 통해서 select location block으로 적절한 location block을 찾는다.
+					//path이 root랑 다를 때 Location block의 변수들을 Server로 넘겨준다.
+					//만약 location을 못 찾았다면 그냥 server block의 변수를 사용하면 된다.
+					if (this->_response._path != this->_response._root)
+					{
+						std::cout << PINK << "@@@@@@@@@@@@@select location@@@@@@@@@@@@" << RESET << std::endl;
+						LocationBlock	test = this->selectLocationBlock(this->_response._path);
+						if (test.getIsEmpty() == false)
+						{//값을 가지고 있는 location block을 찾았을 경우에 이 location block의 변수들을 모두 넣어주면 된다.
+							test.print_location_block();
+							this->locationToServer(test);
+						}
 					}
 				}
 				
@@ -260,7 +297,6 @@ class Server
 						this->_response._body = this->_request[fd].substr(this->_body_start_pos,
 							this->_request[fd].length() - this->_body_start_pos);
 					}
-					
 				}
 			}
 		}
@@ -273,21 +309,27 @@ class Server
 			{
 				(void)write_size;
 				//HTTP/0.9이거나 HTTP/1.0일 때는 종료
+				
 				if (this->_response._code == Bad_Request || this->_response._code == Internal_Server_Error
 					|| this->_response._code == Payload_Too_Large)
 				{
+					if (this->_response._error_html.find(this->_response._code) != this->_response._error_html.end())
+						this->_response._path = this->_response._error_html[this->_response._code];
+
 					std::string	header = this->_response.getHeader();
 					std::map<int, std::string>::iterator	it = this->_response._error_html.find(this->_response._code);
 					if (it != this->_response._error_html.end())
 					{
 						header += this->_response.readHtml(it->second);
 					}
+
 					std::cout << YELLOW << "\n==========response=========\n" << header << RESET;
 					::send(fd, header.c_str(), header.size(), 0);
 					disconnect_request(fd);
 				}
 				if (this->_request_end == 1)
 				{
+					std::cout << "verify_method, code :  " <<  this->_response._code << std::endl;
 					if (this->_response.verify_method(fd) == 1)
 						disconnect_request(fd);
 					if (this->_response._connection == "close")
@@ -297,7 +339,7 @@ class Server
 						this->_request[fd].clear();
 						this->_request_end = 0;
 						this->_body_condition = No_Body;
-						this->_response.resetRequest();
+						this->_response.initRequest();
 						this->_is_check_request_line = 0;
 						this->_body_start_pos = 0;
 						this->_body_end = 0;
@@ -306,75 +348,15 @@ class Server
 			}
 		}
 
-		int	server_start()
+		void	init_server_member()
 		{
-			int				new_events;
-			struct kevent*	curr_event;
+			this->_response.initRequest();
+			this->_response.initPossibleMethod();
+			this->_response.initErrorMap();
 			this->_body_condition = No_Body;
 			this->_body_end = 0;
 			this->_body_start_pos = 0;
-			this->_response.resetRequest();
-			this->_response.initPossibleMethod();
-			this->_response.initAllowMethod();
-			this->_response.initErrorHtml();
-			if (this->init_server_socket() == 1)
-				return (1);
-			while (1)
-			{
-				new_events = kevent(this->_kq, &this->_change_list[0], this->_change_list.size(),
-					this->_event_list, LISTEN_BUFFER_SIZE, NULL);
-				//kevent로 change_list에 등록되어 있는 event를 등록한다.
-				if (new_events == -1)
-				{
-					std::cerr << "kevent error\n";
-					return (1);
-				}
-				this->_change_list.clear();
-				//change_list에 등록되어 있는 event를 삭제한다.
-
-				for (int i = 0; i < new_events; i++)
-				{//event가 발생한 개수가 new_events이므로, 개수만큼 반복한다.
-					
-					curr_event = &this->_event_list[i];
-					if (curr_event->flags & EV_ERROR)
-					{//curr_event가 error일 때
-						if (event_error(curr_event->ident) == 1)
-						{
-							std::cerr << "kevent error occured so server is stop\n";
-							return (1);
-						}
-					}
-					else if (curr_event->filter == EVFILT_READ)
-					{//curr_event가 read일 때
-						// write(1, "read", 4);
-						event_read(curr_event->ident);
-					}
-					else if (curr_event->filter == EVFILT_WRITE)
-					{
-						// write(1, "write", 5);
-						event_write(curr_event->ident);
-					}
-				}
-			}
-			return (0);
 		}
-	
-	private:
-		struct sockaddr_in			_server_addr; //server의 주소를 저장
-		int							_server_socket; //server_socket의 fd를 저장
-		t_listen					_listen; //listen할 host와 port를 저장
-		int							_kq; //kqueue를 통해 받은 fd를 저장
-		std::map<int, std::string>	_request; //request의 socket과 socket의 내용을 저장
-		std::vector<struct kevent>	_change_list; //kevent를 모두 저장
-		struct kevent				_event_list[LISTEN_BUFFER_SIZE]; //이벤트가 발생한 kevent를 저장
-
-		Response					_response;
-		int							_body_condition;
-		int							_request_end;
-		bool						_is_check_request_line;
-		size_t						_body_start_pos;
-		int							_body_end;
-		
 
 };
 

@@ -249,8 +249,9 @@ unsigned int	host_to_int(std::string host)
 	return (ret);
 }
 
+//파일이 REG(regular file)이면 1을 리턴하고 다른 경우에는 0을 리턴한다.
 int	pathIsFile(const std::string& path)
-{//파일이 REG(regular file)이면 1을 리턴하고 다른 경우에는 0을 리턴한다.
+{
 	struct stat	s;
 	if (stat(path.c_str(), &s) == 0)
 	{
@@ -332,10 +333,27 @@ void	print_vec(std::vector<std::string> str_vec)
 {
 	for (std::vector<std::string>::iterator it = str_vec.begin();
 		it != str_vec.end(); it++)
+		std::cout << *it << ", ";
+	std::cout << std::endl;
+}
+
+void	print_set(std::set<std::string> str_set)
+{
+	for (std::set<std::string>::iterator it = str_set.begin();
+		it != str_set.end(); it++)
+		std::cout << *it << ", ";
+	std::cout << std::endl;
+}
+
+void	print_errmap(std::map<int, std::string> errmap)
+{
+	std::cout << "==================err map==================\n";
+	for (std::map<int, std::string>::iterator it = errmap.begin();
+		it != errmap.end(); it++)
 	{
-		write(1, (*it).c_str(), (*it).length());
-		write(1, "\n", 1);
+		std::cout << (*it).first << ": " << (*it).second << ", ";
 	}
+	std::cout << std::endl;
 }
 
 int	compare_end(const std::string& s1, const std::string& s2)

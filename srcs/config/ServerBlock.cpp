@@ -3,32 +3,32 @@
 ServerBlock::ServerBlock ()
 	: _block(""),
 	_host("*"),
-	_port("80"),
+	_port(DEFAULT_PORT_STR),
 	_default(false),
 	_name(""),
 	_errPages(),
 	_clntSize(MiBToBits("1m")),
-	_root("html"),
+	_root(),
 	_locations(),
 	_methods(),
 	_redirect(1),
-	_autoindex(ON),
+	_autoindex(DEFAULT_AUTOINDEX),
 	_index()
 {}
 
 ServerBlock::ServerBlock (std::string block)
 	: _block(block),
 	_host("*"),
-	_port("80"),
+	_port(DEFAULT_PORT_STR),
 	_default(false),
 	_name(""),
 	_errPages(),
 	_clntSize(MiBToBits("1m")),
-	_root("html"),
+	_root(),
 	_locations(),
 	_methods(),
 	_redirect(1),
-	_autoindex(ON),
+	_autoindex(DEFAULT_AUTOINDEX),
 	_index()
 {}
 
@@ -45,7 +45,8 @@ ServerBlock::ServerBlock (const ServerBlock &srv)
 	_methods(srv._methods),
 	_redirect(srv._redirect),
 	_autoindex(srv._autoindex),
-	_index(srv._index)
+	_index(srv._index),
+	_host_port(srv._host_port)
 {}
 
 ServerBlock::~ServerBlock () {}
@@ -73,28 +74,32 @@ std::string					ServerBlock::getHost () const { return (_host); }
 std::string					ServerBlock::getPort () const { return (_port); }
 bool						ServerBlock::getDefault () const { return (_default); }
 std::string					ServerBlock::getName () const { return (_name); }
-std::vector<std::string>	ServerBlock::getErrPages () const { return (_errPages); }
+std::map<int, std::string>	ServerBlock::getErrPages () const { return (_errPages); }
 int							ServerBlock::getClntSize () const { return (_clntSize); }
 std::string					ServerBlock::getRoot () const { return (_root); }
 std::vector<LocationBlock>	ServerBlock::getLocationBlocks () const { return (_locations); }
 std::vector<std::string>	ServerBlock::getMethods () const { return (_methods); }
 int							ServerBlock::getRedirect () const { return (_redirect); }
-bool						ServerBlock::getAutoindex () const { return (_autoindex); }
+int							ServerBlock::getAutoindex () const { return (_autoindex); }
 std::vector<std::string>	ServerBlock::getIndex () const { return (_index); }
+
+std::string					ServerBlock::getHostPort () const { return (this->_host_port); }
 
 void						ServerBlock::setBlock(std::string block) { _block = block; }
 void						ServerBlock::setHost (std::string host) { _host = host; }
 void						ServerBlock::setPort (std::string port) { _port = port; }
 void						ServerBlock::setDefault (bool dflt) { _default = dflt; }
 void						ServerBlock::setName (std::string name) { _name = name; }
-void						ServerBlock::setErrPages (std::vector<std::string> pages) { _errPages = pages; }
+void						ServerBlock::setErrPages (std::map<int, std::string> pages) { _errPages = pages; }
 void						ServerBlock::setClntSize (int size) { _clntSize = size; }
 void						ServerBlock::setRoot (std::string root) { _root = root; }
 void						ServerBlock::addLocationBlock (LocationBlock lc) { _locations.push_back(lc); }
 void						ServerBlock::setMethods (std::vector<std::string> methods) { _methods = methods; }
 void						ServerBlock::setRedirect (int redirect) { _redirect = redirect; }
-void						ServerBlock::setAutoindex (bool autoindex) { _autoindex = autoindex; }
+void						ServerBlock::setAutoindex (int autoindex) { _autoindex = autoindex; }
 void						ServerBlock::setIndex (std::vector<std::string> index) { _index = index; }
+
+void						ServerBlock::setHostPort(std::string host_port) { this->_host_port = host_port; }
 
 int							ServerBlock::parseAddress () {
 	std::string					address;
@@ -107,6 +112,8 @@ int							ServerBlock::parseAddress () {
 	address = parseValue(_block, res.second, ";");
 	if (address.find(" ", 0) != std::string::npos) {
 		addressVec = split(address, ' ');
+		this->setHostPort(addressVec[0]);
+		std::cout << "parse host port : " << this->_host_port << std::endl;
 		if (addressVec.size() > 2)
 			return (printErr("wrong syntax in listen directive"));
 		if (addressVec[1] == "default_server")
@@ -114,7 +121,11 @@ int							ServerBlock::parseAddress () {
 		addressVec = split(addressVec[0], ':');
 	}
 	else
+	{
+		this->setHostPort(address);
+		std::cout << "parse no space host port : " << this->_host_port << std::endl;
 		addressVec = split(address, ':');
+	}
 
 	if (addressVec.size() == 1) {
 		if (addressVec[0].find(".", 0) == std::string::npos)
@@ -149,12 +160,32 @@ int							ServerBlock::parseName () {
 int							ServerBlock::parseErrPages () {
 	std::string				errPages;
 	std::pair<bool, size_t>	res = skipKey(_block, "error_page", ";");
+	std::vector<std::string>	err_vec;
 
 	if (res.first == false)
 		return (0);
 
 	errPages = parseValue(_block, res.second, ";");
-	setErrPages(split(errPages, ' '));
+
+	err_vec = split(errPages, ' ');
+	for (std::vector<std::string>::iterator it = err_vec.begin();
+		it != err_vec.end(); it++)
+	{
+
+		if (isNumber(*it) == 0)
+		{
+			errPages = *it;
+			break ;
+		}
+		else
+		{
+			this->_errPages[strToInt(*it)] = "";
+		}
+	}
+
+	for (std::map<int, std::string>::iterator it = this->_errPages.begin();
+		it != this->_errPages.end(); it++)
+		it->second = errPages;
 
 	return (0);
 }
@@ -245,11 +276,6 @@ int							ServerBlock::parseIndex () {
 int							ServerBlock::parse () {
 	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
 
-	for (size_t i = 0; i < locBlocks.size(); i++) {
-		addLocationBlock(LocationBlock(locBlocks[i]));
-		_locations[i].parse();
-	}
-
 	parseAddress();
 	parseName();
 	parseErrPages();
@@ -258,6 +284,14 @@ int							ServerBlock::parse () {
 	parseMethods();
 	parseAutoindex();
 	parseIndex();
+
+	for (size_t i = 0; i < locBlocks.size(); i++) {
+		addLocationBlock(LocationBlock(locBlocks[i]));
+		_locations[i].parse();
+		this->_locations[i].setURI(this->_root + this->_locations[i].getURI());
+	}
+
+	
 
 /*	std::cout << "host: " << getHost() << ", port: " << getPort() << std::endl;
 	std::cout << "server name: " << getName() << std::endl;
@@ -278,88 +312,49 @@ int							ServerBlock::parse () {
 	return (0);
 }
 
-// selecting which location will respond to the request
-LocationBlock				ServerBlock::selectLocationBlock (std::string requestURI) const {
-	std::vector<LocationBlock>	locationBlocks;
-	std::vector<std::string>	requestURIvec;
-	size_t						max = 0,ret = 0, level;
-
-	// first, split the request URI by '/'
-	if (requestURI[0] == '/')
-		requestURIvec = split(&requestURI[1], '/');
+void	ServerBlock::print_server_block()
+{
+	std::cout << "serverblock : " << this->_block << std::endl;
+	std::cout << "serverblock host : " << this->_host << std::endl;
+	std::cout << "serverblock port : " << this->_port << std::endl;
+	std::cout << "serverblock default : " << this->_default << std::endl;
+	std::cout << "serverblock name : " << this->_name << std::endl;
+	if (this->_errPages.size() != 0)
+	{
+		std::cout << "serverblock errorpages\n";
+		print_errmap(this->_errPages);
+	}
 	else
-		requestURIvec = split(requestURI, '/');
-
-	// size of the splitted vector
-	level = requestURIvec.size();
-
-	// only one nested location is available for now
-	if (level > 2) {
-		printErr("only one nested location block is available (at the moment)");
-		return (LocationBlock());
-	}
-
-	// add '/' to each of the string in the vector
-	for (size_t i = 0; i < level; i++)
-		requestURIvec[i] = "/" + requestURIvec[i];
-
-	// if nested location's URI doesn't contain its parent location's URI, it is an error
-	for (size_t i = 0; i < _locations.size(); i++) {
-		std::vector<LocationBlock>	nested = _locations[i].getLocationBlocks();
-		for (size_t j = 0; j < nested.size(); j++) {
-			if (nested[j].getBlock() != "") {
-				if (nested[j].getURI().find(_locations[i].getURI(), 0) == std::string::npos) {
-					printErr("wrong URI in location block");
-					return (LocationBlock());
-				}
-			}
+		std::cout << "serverblock has no errorpages\n";
+	std::cout << "serverblock clntsize : " << this->_clntSize << std::endl;
+	std::cout << "root : " << this->_root;
+	if (this->_locations.size() != 0)
+	{
+		std::cout << GREEN << "serverblock has location block\n";
+		for (std::vector<LocationBlock>::iterator it = this->_locations.begin();
+			it != this->_locations.end(); it++)
+		{
+			std::cout << GREEN;
+			(*it).print_location_block();
 		}
+		std::cout << RESET;
 	}
-
-	// look for locations whose modifier is '='; the request URI must match the location's URI
-	for (size_t i = 0; i < _locations.size(); i++) {
-		if (_locations[i].getMod() == EXACT) {
-			if (_locations[i].getURI() == requestURI)
-				return (_locations[i]);
-			else
-				break ;
-		}
+	else
+		std::cout << "serverblock has no location block\n";
+	if (this->_methods.size() != 0)
+	{
+		std::cout << "serverblock has methods\n";
+		print_vec(this->_methods);
 	}
-
-	// look for locations who don't have modifiers or '~'; the location's URI must contain the request URI
-	for (size_t i = 0; i < _locations.size(); i++) {
-		if (_locations[i].getMod() == NONE || _locations[i].getMod() == PREFERENTIAL) {
-			if (_locations[i].getURI().find(requestURIvec[0], 0) != std::string::npos) {
-				// first, check if the two URIs match
-				if (_locations[i].getURI() == requestURI)
-					locationBlocks.push_back(_locations[i]);
-				// then, check for the level of the request URI
-				else if (level == 1)
-					locationBlocks.push_back(_locations[i]);
-				else {
-					// if the request URI has more than one slashes (nested), get the nested locations and compare their URIs
-					std::vector<LocationBlock>	nested = _locations[i].getLocationBlocks();
-					for (size_t j = 0; j < nested.size(); j++) {
-						if (!compareURIsWithWildcard(nested[j].getURI(), requestURIvec[1], nested[j].getMod()))
-							locationBlocks.push_back(nested[j]);
-					}
-				}
-			}
-		}
+	else
+		std::cout << "serverblock has no methods\n";
+	std::cout << "serverblock redirect : " << this->_redirect << std::endl;
+	std::cout << "serverblock autoindex : " << this->_autoindex << std::endl;
+	if (this->_index.size() != 0)
+	{
+		std::cout << "serverblock has index\n";
+		print_vec(this->_index);
 	}
-
-	// if no location was found, return empty location
-	if (locationBlocks.empty())
-		return (LocationBlock());
-
-	// if there are more than one locations selected, return the location with longest URI
-	max = locationBlocks[ret].getURI().length();
-	for (size_t i = 1; i < locationBlocks.size(); i++) {
-		if (locationBlocks[i].getURI().size() > max) {
-			max = locationBlocks[i].getURI().length();
-			ret = i;
-		}
-	}
-
-	return (locationBlocks[ret]);
+	else
+		std::cout << "serverblock has no index\n";
 }

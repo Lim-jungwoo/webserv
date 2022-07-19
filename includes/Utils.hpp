@@ -12,6 +12,7 @@
 # define NONE			0
 # define EXACT			1
 # define PREFERENTIAL	2
+# define DEFAULT_AUTOINDEX	2
 # define ON				1
 # define OFF			0
 
@@ -80,7 +81,8 @@ int							compareURIsWithWildcard (std::string URI, std::string request, int mod
 # define WHITE "\e[37m"
 # define RESET "\e[0m"
 
-#define DEFAULT_PORT	8000
+#define DEFAULT_PORT		8000
+#define DEFAULT_PORT_STR	"8000"
 
 
 enum	ErrorCode
@@ -157,6 +159,8 @@ int	set_error_page(const std::string& errPages, std::map<int, std::string>* errM
 std::string	intToStr(int code);
 
 void	print_vec(std::vector<std::string> str_vec);
+void	print_set(std::set<std::string> str_set);
+void	print_errmap(std::map<int, std::string> errmap);
 
 int	compare_end(const std::string& s1, const std::string& s2);
 

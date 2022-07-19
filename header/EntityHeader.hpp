@@ -110,8 +110,10 @@ class EntityHeader : public GeneralHeader
 
 		void	setCode(const int& code = 0)
 		{
-			if (this->_code == 0)
+			if (code != 0)
 				this->_code = code;
+			else
+				this->_code = 0;
 		}
 
 		void	initPossibleMethod()
@@ -127,12 +129,15 @@ class EntityHeader : public GeneralHeader
 			this->_allow_method.insert(method);
 		}
 
-		void	initAllowMethod()
+		void	initAllowMethod(std::vector<std::string> allow_method)
 		{
-			this->_allow_method.insert("GET");
-			this->_allow_method.insert("POST");
-			this->_allow_method.insert("PUT");
-			this->_allow_method.insert("DELETE");
+			for (std::vector<std::string>::iterator it = allow_method.begin();
+				it != allow_method.end(); it++)
+				this->setAllowMethod(*it);
+			// this->_allow_method.insert("GET");
+			// this->_allow_method.insert("POST");
+			// this->_allow_method.insert("PUT");
+			// this->_allow_method.insert("DELETE");
 		}
 	
 	// protected:

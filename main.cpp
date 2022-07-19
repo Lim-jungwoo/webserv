@@ -15,9 +15,12 @@ int	main(int argc, char **argv) {
 	std::cout << "parse done" << std::endl;
 
 	std::vector<ServerBlock>	srvs = conf.getServerBlocks();
+	// srvs[0].print_server_block();
 
-	LocationBlock	loc = srvs[0].selectLocationBlock("/helloa");
+	LocationBlock	loc = srvs[0].selectLocationBlock("/hello");
+	// std::vector<LocationBlock> locs = srvs[0].getLocationBlocks();
+	// LocationBlock	loc = locs[0];
 
-	std::cout << "LOCATION: " << std::endl;
-	std::cout << "- location uri: " << loc.getURI() << std::endl;
+
+	loc.print_location_block();
 }

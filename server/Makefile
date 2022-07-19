@@ -1,6 +1,8 @@
 NAME = test
 
-SRCS = ./main.cpp ../srcs/Utils.cpp
+SRCS = ./main.cpp ../srcs/Utils.cpp ../srcs/config/LocationBlock.cpp\
+	../srcs/config/ServerBlock.cpp ../srcs/config/Config.cpp ./Server.cpp\
+	
 OBJS = $(SRCS:.cpp=.o)
 
 CXX = c++

@@ -38,10 +38,18 @@ class RequestHeader : public EntityHeader
 
 			request_line_it++;
 			this->_path = *request_line_it;
-			if (this->_path == "/")
-			{ this->_path = DEFAULT_HTML; }
-			else if (this->_path.at(0) == '/')
-				this->_path = this->_path.substr(1, this->_path.length() - 1);
+			if (this->_path == "/" && this->_method == "GET")
+			{//path이 /이고 GET일 때만 작동
+				this->_path.clear();
+				this->_path = this->_root + "/index.html";
+			}
+			else if (this->_path != "/")
+			{
+				if (this->_path.at(0) != '/')
+					this->_path = "/" + this->_path;
+				if (this->_path.find(this->_root) == std::string::npos)
+					this->_path = this->_root + this->_path;
+			}
 
 			if (this->_method == "GET" && request_line_vec.size() == 2)
 			{//GET method이고, request_line이 2개의 단어로 이루어져 있다면 HTTP/0.9버전이다.
@@ -58,7 +66,7 @@ class RequestHeader : public EntityHeader
 
 			request_line_it++;
 			this->_http_version = *request_line_it;
-			std::cout << "http version : " << this->_http_version;
+			std::cout << "http version : " << this->_http_version << std::endl;
 			if (this->_http_version == "HTTP/1.0")
 				this->setConnection("close");
 			if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
@@ -332,6 +340,7 @@ class RequestHeader : public EntityHeader
 		std::string	_http_version; //HTTP버전을 확인
 		std::string	_body;
 		size_t		_body_size;
+		std::string					_root;
 
 		/*
 		//사용안할 것 같은 것

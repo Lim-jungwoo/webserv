@@ -50,9 +50,9 @@ class Response : public ResponseHeader
 
 			std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
 			if (it != this->_error_html.end())
-			{
 				total_response += this->readHtml(it->second);
-			}
+			else if (this->_code != Created && this->_code != No_Content && this->_code != OK)
+				total_response += ERROR_HTML;
 
 			std::cout << YELLOW << "\n==========response=========\n" << total_response << RESET;
 			if ((write_size = ::send(fd, total_response.c_str(),
@@ -104,7 +104,7 @@ class Response : public ResponseHeader
 				}
 				file << body;
 				file.close();
-				this->setCode(OK);
+				this->setCode(No_Content);
 			}
 			else
 			{
@@ -138,7 +138,7 @@ class Response : public ResponseHeader
 					this->setCode(Forbidden);
 				}
 				else
-					this->setCode(OK);
+					this->setCode(No_Content);
 				file << body;
 				file.close();
 			}
@@ -165,7 +165,7 @@ class Response : public ResponseHeader
 			if (pathIsFile(path))
 			{
 				if (remove(path.c_str()) == 0)
-					this->setCode(OK);
+					this->setCode(No_Content);
 				else
 				{
 					std::cerr << "file is regular file but remove fail\n";

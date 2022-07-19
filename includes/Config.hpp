@@ -2,11 +2,13 @@
 # define __CONFIG_HPP__
 
 # include "./ServerBlock.hpp"
+# include "../server/Server.hpp"
 
 class	Config {
 
 	private:
-		std::vector<ServerBlock>	_server;
+		std::vector<ServerBlock>	_server_block;
+		std::vector<Server>			_server_vec;
 
 	public:
 		Config ();
@@ -16,9 +18,14 @@ class	Config {
 
 		std::vector<ServerBlock>	getServerBlocks ();
 
-		void						addServerBlock (ServerBlock serv);
+		void						addServerBlock (ServerBlock server_block);
 
 		int							parse (std::string file);
+
+		int							serverStart();
+
+		int							initServer(const std::string& conf_file);
+
 };
 
 #endif

@@ -13,10 +13,12 @@ class	LocationBlock {
 		std::vector<std::string>	_methods;
 		int							_redirect;
 		std::string					_root;
-		bool						_autoindex;
+		int							_autoindex;
 		std::vector<std::string>	_index;
 		std::string					_cgi;
 		std::vector<LocationBlock>	_locations;
+
+		bool						_is_empty;
 
 	public:
 		// constructor, destructor, assignment operator overload
@@ -34,10 +36,11 @@ class	LocationBlock {
 		std::vector<std::string>	getMethods () const;
 		int							getRedirect () const;
 		std::string					getRoot () const;
-		bool						getAutoindex () const;
+		int							getAutoindex () const;
 		std::vector<std::string>	getIndex () const;
 		std::string					getCGI () const;
 		std::vector<LocationBlock>	getLocationBlocks () const;
+		bool						getIsEmpty() const;
 
 		// setter
 		void						setMod (int mod);
@@ -46,10 +49,11 @@ class	LocationBlock {
 		void						setMethods (std::vector<std::string> methods);
 		void						setRedirect (int redirection);
 		void						setRoot (std::string root);
-		void						setAutoindex (bool autoindex);
+		void						setAutoindex (int autoindex);
 		void						setIndex (std::vector<std::string> index);
 		void						setCGI (std::string cgi);
 		void						addLocationBlock (LocationBlock lc);
+		void						setIsEmpty(bool is_empty);
 
 		// parse
 		int							parseModMatch ();
@@ -61,6 +65,8 @@ class	LocationBlock {
 		int							parseCGI ();
 
 		int							parse ();
+
+		void						print_location_block();
 };
 
 #endif

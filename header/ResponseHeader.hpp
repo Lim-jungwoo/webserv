@@ -32,6 +32,12 @@ class ResponseHeader : public RequestHeader
 			this->_error_html[code] = html;
 		}
 
+		void	setErrorHtml(std::map<int, std::string> html)
+		{
+			this->_error_html = html;
+			changeHtmlRelativePath();
+		}
+
 		void	changeHtmlRelativePath()
 		{//error_html에 저장되어있는 파일이름을 상대경로로 바꿔준다.
 			for (std::map<int, std::string>::iterator it = this->_error_html.begin();
@@ -73,7 +79,6 @@ class ResponseHeader : public RequestHeader
 		std::string	getHeader()
 		{
 			std::string	header;
-			initErrorMap();
 			setHeader();
 			header = this->_http_version + " " + intToStr(this->_code) + " " + getStatusMessage(this->_code) + "\r\n";
 			header += writeHeader(); 
@@ -126,7 +131,7 @@ class ResponseHeader : public RequestHeader
 			return ("There is no error code");
 		}
 
-		void	resetRequest()
+		void	initRequest()
 		{
 			//general header reset
 			this->_date = "";
@@ -159,12 +164,18 @@ class ResponseHeader : public RequestHeader
 			this->_code = 0;
 
 			//response header reset
-			this->_server = "";
 			this->_www_authenticate = "";
 			this->_retry_after = "";
 			this->_last_modified = "";
 			this->_location = "";
 			this->_body_size = 0;
+		}
+
+		void	resetRequest()
+		{
+			//response header reset
+			this->initRequest();
+			this->_server = "";
 		}
 
 		void	setHeader()
@@ -185,15 +196,20 @@ class ResponseHeader : public RequestHeader
 			//request header는 request를 파싱할 때 모두 세팅되어있으므로 필요 없다.
 			
 			//response header
-			this->setServer();
+			this->setServer(this->_server);
 			this->setWwwAuthenticate(this->_code);
 			this->setRetryAfter(this->_code, DEFAULT_RETRY_AFTER);
 			this->setLastModified(this->_path);
 			this->setLocation(this->_code, this->_path);
 		}
 
-		void	setServer()
-		{ this->_server = "Webserv/1.0 (Unix)"; }
+		void	setServer(const std::string& server = "")
+		{
+			if (server == "")
+				this->_server = "Webserv/1.0 (Unix)";
+			else
+				this->_server = server;
+		}
 		void	setWwwAuthenticate(int code)
 		{
 			if (code == Unauthorized)

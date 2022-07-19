@@ -1,7 +1,7 @@
 #ifndef GENERALHEADER_HPP
 # define GENERALHEADER_HPP
 
-# include "../includes/Utils.hpp"
+# include "../includes/ServerBlock.hpp"
 
 class GeneralHeader
 {//요청과 응답 모두에 적용되지만 바디에서 최종적으로 전송되는 데이터와는 관련이 없는 헤더
