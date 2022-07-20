@@ -71,16 +71,24 @@ class Response : public ResponseHeader
 			std::stringstream	buffer;
 			(void)fd;
 			std::cout << "GET METHOD PATH IS " << path << std::endl;
-			file.open(path.c_str(), std::ifstream::in);
-			if (file.is_open() == false)
+			if (compare_end(path, "Yeah") == 0)
 			{
-				std::cout << "FILE OPEN ERROR\n";
+				std::cout << "path is Yeah so not found\n";
 				this->setCode(Not_Found);
 			}
 			else
 			{
-				this->setCode(OK);
-				buffer << file.rdbuf();
+				file.open(path.c_str(), std::ifstream::in);
+				if (file.is_open() == false)
+				{
+					std::cout << "FILE OPEN ERROR\n";
+					this->setCode(Not_Found);
+				}
+				else
+				{
+					this->setCode(OK);
+					buffer << file.rdbuf();
+				}
 			}
 			this->setContentLength(buffer.str().length());
 			file_content = this->getHeader();

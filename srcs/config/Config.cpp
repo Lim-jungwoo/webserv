@@ -79,8 +79,8 @@ int	Config::serverStart()
 		std::vector<Server>::iterator	it = this->_server_vec.begin();
 
 		struct timespec time_val;
-		time_val.tv_sec = 0;
-		time_val.tv_nsec = 1;
+		time_val.tv_sec = 1;
+		time_val.tv_nsec = 0;
 		for (size_t i = 0; i < this->_server_vec.size(); i++, it++)
 		{
 			

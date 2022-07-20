@@ -180,11 +180,11 @@ class RequestHeader : public EntityHeader
 					std::cerr << "content length, transfer encoding exist\n";
 					return (1);
 				}
-				else if (this->_content_type != "" && (this->_content_length != "" || this->_transfer_encoding != ""))
+				else if (this->_content_length != "" || this->_transfer_encoding != "")
 					return (0);
 				else
 				{
-					std::cerr << "content type, content length header is not exist\n";
+					std::cerr << "content length or transfer encoding header is not exist\n";
 					return (1);
 				}
 			}
@@ -199,7 +199,7 @@ class RequestHeader : public EntityHeader
 			std::string		str;
 			std::map<std::string, std::string>	ret;
 			std::string		body = "";
-			std::cerr << "===============request===============\n" << request << std::endl;
+			std::cout << CYAN << "===============request===============\n" << request << RESET << std::endl;
 			while ((r_pos = request.find('\n', start)) != std::string::npos)
 			{//\r을 계속 찾아서 그것을 기준으로 vector에 넣어주자.
 				if (request.at(start) == '\r')

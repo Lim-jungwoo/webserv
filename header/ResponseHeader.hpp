@@ -94,8 +94,10 @@ class ResponseHeader : public RequestHeader
 			//request header와 겹침
 			if (this->_content_language != "")
 				header += "Content-Language: " + this->_content_language + "\r\n";
-			if (this->_content_length != "")
+			if (this->_content_length != "" && this->_transfer_encoding != "chunked")
 				header += "Content-Length: " + this->_content_length + "\r\n";
+			if (this->_transfer_encoding == "chunked")
+				header += "Content-Length: 0\r\n";
 			if (this->_content_location != "")
 				header += "Content-Location: " + this->_content_location + "\r\n";
 			if (this->_content_type != "")
@@ -114,8 +116,10 @@ class ResponseHeader : public RequestHeader
 				header += "Server: " + this->_server + "\r\n";
 
 			//request header와 겹치는 것
-			if (this->_transfer_encoding != "")
+			if (this->_transfer_encoding != "" && this->_transfer_encoding != "chunked")
 				header += "Transfer-Encoding: " + this->_transfer_encoding + "\r\n";
+			if (this->_transfer_encoding == "chunked")
+				header += "Transfer-Encoding: identity\r\n";
 			//
 			
 			if (this->_www_authenticate != "")

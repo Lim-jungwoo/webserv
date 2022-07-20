@@ -349,8 +349,9 @@ void	print_errmap(std::map<int, std::string> errmap)
 	std::cout << std::endl;
 }
 
+//s1의 끝부분에 s2가 있다면 0을 리턴, s2가 없다면 1을 리턴
 int	compare_end(const std::string& s1, const std::string& s2)
-{//s1의 끝부분에 s2가 있다면 0을 리턴, s2가 없다면 1을 리턴
+{
 	size_t	s1_end = s1.size();
 	size_t	s2_end = s2.size();
 	while (s2_end > 0)

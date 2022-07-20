@@ -83,7 +83,7 @@ class Server
 						break ;
 				}
 			}
-
+			std::cout << BLUE << "befroe select location path : " << _response._path << std::endl;
 			// look for locations who don't have modifiers or '~'; the location's URI must contain the request URI
 			for (size_t i = 0; i < _locations.size(); i++) {
 				if (_locations[i].getMod() == NONE || _locations[i].getMod() == PREFERENTIAL) {
@@ -122,6 +122,7 @@ class Server
 					ret = i;
 				}
 			}
+			std::cout << PINK << "after select location path : " << locationBlocks[ret].getURI() << std::endl;
 
 			return (locationBlocks[ret]);
 		}
@@ -130,7 +131,8 @@ class Server
 		{
 			if (location_block.getIsEmpty() == true)
 				return ;
-			if (location_block.getURI() != "")
+			if (location_block.getURI() != "" && (this->_response._method == "GET" ||
+				(this->_response._method != "GET" && this->_response._path != "/")))
 				this->_response._path = location_block.getURI();
 			if (location_block.getClntSize() != READ_BUFFER_SIZE)
 				this->_client_max_body_size = location_block.getClntSize();
@@ -191,7 +193,7 @@ class Server
 					std::cout << "request is empty line\n";
 					return ;
 				}
-				if (compare_end(this->_request[fd], "\r\n") == 0 &&
+				if (this->_request[fd].find("\r\n") != std::string::npos &&
 					this->_is_check_request_line == 0)
 				{
 					this->_is_check_request_line = 1;
@@ -222,13 +224,13 @@ class Server
 						{//값을 가지고 있는 location block을 찾았을 경우에 이 location block의 변수들을 모두 넣어주면 된다.
 							// test.print_location_block();
 							this->locationToServer(test);
-							this->_response.printEntityHeader();
-							this->_response.printGeneralHeader();
+							// this->_response.printEntityHeader();
+							// this->_response.printGeneralHeader();
 						}
 					}
 				}
 				
-				if (this->_response._content_length == "" && this->_response._transfer_encoding == "chunked")
+				if (this->_response._transfer_encoding == "chunked")
 				{//content_length가 없고, transfer_encoding이 chunked일 때 파일의 끝을 알리는 것이 들어올 때까지 계속 recv
 					if (this->_request[fd].at(this->_request[fd].length() - 1) == 4)
 					// if (compare_end(this->_request[fd], "\0\r\n") == 0)
@@ -237,11 +239,15 @@ class Server
 						std::cout << "receive file end\n";
 						this->_request_end = 1;
 					}
-					else if (compare_end(this->_request[fd], "0\r\n\r\n") == 0)
+					else if (this->_request[fd].find("0\r\n\r\n") != std::string::npos)
 					{
 						this->_request[fd] = this->_request[fd].substr(0, this->_request[fd].length() - 5);
 						std::cout << "receive file end\n";
 						this->_request_end = 1;
+					}
+					else if (this->_request[fd].find("0\r\n\r\n") == std::string::npos)
+					{
+						std::cout << PINK << "request can't find end of file\n" << this->_request[fd] << RESET << std::endl;
 					}
 					else
 					{
@@ -257,13 +263,13 @@ class Server
 					std::cout << "!!!!!!!!!!body exist\n";
 					this->_body_condition = Body_Exist;
 				}
-				if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
+				if ((this->_request[fd].empty() != 1 && this->_request[fd].find("\r\n\r\n") != std::string::npos)\
 					&& this->_body_condition == No_Body) 
 				{
 					this->_request_end = 1;
 					this->_body_condition = Body_End;
 				}
-				else if ((this->_request[fd].empty() != 1 && compare_end(this->_request[fd], "\r\n\r\n") == 0)\
+				else if ((this->_request[fd].empty() != 1 && this->_request[fd].find("\r\n\r\n") != std::string::npos)\
 					&& this->_body_condition == Body_Exist)
 				{
 					std::cout << "!!!!!!!!!!!!!!!body start\n";
@@ -307,6 +313,23 @@ class Server
 			}
 		}
 
+		int	responseERR(int fd)
+		{
+			if (this->_response._error_html.find(this->_response._code) != this->_response._error_html.end())
+				this->_response._path = this->_response._error_html[this->_response._code];
+			std::string	header = this->_response.getHeader();
+			std::map<int, std::string>::iterator	it = this->_response._error_html.find(this->_response._code);
+			if (it != this->_response._error_html.end())
+			{
+				header += this->_response.readHtml(it->second);
+			}
+
+			std::cout << YELLOW << "\n==========response=========\n" << header << RESET;
+			::send(fd, header.c_str(), header.size(), 0);
+			disconnect_request(fd);
+			return(0);
+		}
+
 		void	event_write(int fd)
 		{
 			std::map<int, std::string>::iterator	it = this->_request.find(fd);
@@ -319,36 +342,33 @@ class Server
 				if (this->_response._code == Bad_Request || this->_response._code == Internal_Server_Error
 					|| this->_response._code == Payload_Too_Large)
 				{
-					if (this->_response._error_html.find(this->_response._code) != this->_response._error_html.end())
-						this->_response._path = this->_response._error_html[this->_response._code];
-
-					std::string	header = this->_response.getHeader();
-					std::map<int, std::string>::iterator	it = this->_response._error_html.find(this->_response._code);
-					if (it != this->_response._error_html.end())
-					{
-						header += this->_response.readHtml(it->second);
-					}
-
-					std::cout << YELLOW << "\n==========response=========\n" << header << RESET;
-					::send(fd, header.c_str(), header.size(), 0);
-					disconnect_request(fd);
+					responseERR(fd);
 				}
 				if (this->_request_end == 1)
 				{
 					std::cout << "verify_method, code :  " <<  this->_response._code << std::endl;
-					if (this->_response.verify_method(fd) == 1)
-						disconnect_request(fd);
-					if (this->_response._connection == "close")
-						disconnect_request(fd);
+					std::cout << RED << "response path : " << this->_response.getPath() << RESET << std::endl;
+					if (this->_response.getPath() == "/")
+					{
+						this->_response.setCode(Method_Not_Allowed);
+						responseERR(fd);
+					}
 					else
 					{
-						this->_request[fd].clear();
-						this->_request_end = 0;
-						this->_body_condition = No_Body;
-						this->_response.initRequest();
-						this->_is_check_request_line = 0;
-						this->_body_start_pos = 0;
-						this->_body_end = 0;
+						if (this->_response.verify_method(fd) == 1)
+							disconnect_request(fd);
+						if (this->_response._connection == "close")
+							disconnect_request(fd);
+						else
+						{
+							this->_request[fd].clear();
+							this->_request_end = 0;
+							this->_body_condition = No_Body;
+							this->_response.initRequest();
+							this->_is_check_request_line = 0;
+							this->_body_start_pos = 0;
+							this->_body_end = 0;
+						}
 					}
 				}
 			}
