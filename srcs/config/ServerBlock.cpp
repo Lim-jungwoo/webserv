@@ -2,48 +2,39 @@
 
 ServerBlock::ServerBlock ()
 	: _block(""),
-	_host("*"),
-	_port(DEFAULT_PORT_STR),
-	_default(false),
+	_addresses(),
 	_name(""),
 	_errPages(),
-	_clntSize(MiBToBits("1m")),
+	_clntSize(1024),
 	_root(),
 	_locations(),
 	_methods(),
-	_redirect(1),
 	_autoindex(DEFAULT_AUTOINDEX),
 	_index()
 {}
 
 ServerBlock::ServerBlock (std::string block)
 	: _block(block),
-	_host("*"),
-	_port(DEFAULT_PORT_STR),
-	_default(false),
+	_addresses(),
 	_name(""),
 	_errPages(),
-	_clntSize(MiBToBits("1m")),
+	_clntSize(1024),
 	_root(),
 	_locations(),
 	_methods(),
-	_redirect(1),
 	_autoindex(DEFAULT_AUTOINDEX),
 	_index()
 {}
 
 ServerBlock::ServerBlock (const ServerBlock &srv)
 	: _block(srv._block),
-	_host(srv._host),
-	_port(srv._port),
-	_default(srv._default),
+	_addresses(srv._addresses),
 	_name(srv._name),
 	_errPages(srv._errPages),
 	_clntSize(srv._clntSize),
 	_root(srv._root),
 	_locations(srv._locations),
 	_methods(srv._methods),
-	_redirect(srv._redirect),
 	_autoindex(srv._autoindex),
 	_index(srv._index),
 	_host_port(srv._host_port)
@@ -53,92 +44,63 @@ ServerBlock::~ServerBlock () {}
 
 ServerBlock					&ServerBlock::operator= (const ServerBlock &srv) {
 	_block = srv._block;
-	_host = srv._host;
-	_port = srv._port;
-	_default = srv._default;
+	_addresses = srv._addresses;
 	_name = srv._name;
 	_errPages = srv._errPages;
 	_clntSize = srv._clntSize;
 	_root = srv._root;
 	_locations = srv._locations;
 	_methods = srv._methods;
-	_redirect = srv._redirect;
 	_autoindex = srv._autoindex;
 	_index = srv._index;
 
 	return (*this);
 }
 
-std::string					ServerBlock::getBlock() const { return (_block); }
-std::string					ServerBlock::getHost () const { return (_host); }
-std::string					ServerBlock::getPort () const { return (_port); }
-bool						ServerBlock::getDefault () const { return (_default); }
+std::string					ServerBlock::getBlock () const { return (_block); }
+std::vector<std::string>	ServerBlock::getAddresses () const { return (_addresses); }
 std::string					ServerBlock::getName () const { return (_name); }
 std::map<int, std::string>	ServerBlock::getErrPages () const { return (_errPages); }
 int							ServerBlock::getClntSize () const { return (_clntSize); }
 std::string					ServerBlock::getRoot () const { return (_root); }
 std::vector<LocationBlock>	ServerBlock::getLocationBlocks () const { return (_locations); }
 std::vector<std::string>	ServerBlock::getMethods () const { return (_methods); }
-int							ServerBlock::getRedirect () const { return (_redirect); }
 int							ServerBlock::getAutoindex () const { return (_autoindex); }
 std::vector<std::string>	ServerBlock::getIndex () const { return (_index); }
 
 std::string					ServerBlock::getHostPort () const { return (this->_host_port); }
 
-void						ServerBlock::setBlock(std::string block) { _block = block; }
-void						ServerBlock::setHost (std::string host) { _host = host; }
-void						ServerBlock::setPort (std::string port) { _port = port; }
-void						ServerBlock::setDefault (bool dflt) { _default = dflt; }
+void						ServerBlock::setBlock (std::string block) { _block = block; }
+void						ServerBlock::setAddresses (std::vector<std::string> addr) { _addresses = addr; }
 void						ServerBlock::setName (std::string name) { _name = name; }
 void						ServerBlock::setErrPages (std::map<int, std::string> pages) { _errPages = pages; }
 void						ServerBlock::setClntSize (int size) { _clntSize = size; }
 void						ServerBlock::setRoot (std::string root) { _root = root; }
 void						ServerBlock::addLocationBlock (LocationBlock lc) { _locations.push_back(lc); }
 void						ServerBlock::setMethods (std::vector<std::string> methods) { _methods = methods; }
-void						ServerBlock::setRedirect (int redirect) { _redirect = redirect; }
 void						ServerBlock::setAutoindex (int autoindex) { _autoindex = autoindex; }
 void						ServerBlock::setIndex (std::vector<std::string> index) { _index = index; }
 
 void						ServerBlock::setHostPort(std::string host_port) { this->_host_port = host_port; }
 
-int							ServerBlock::parseAddress () {
-	std::string					address;
-	std::vector<std::string>	addressVec;
+int							ServerBlock::parseAddresses () {
+	std::vector<std::string>	addresses;
 	std::pair<bool, size_t>		res = skipKey(_block, "listen", ";");
+	size_t						lPos = 0, scPos = 0;
 
-	if (res.first == false)
+	if (res.first == false) {
+		addresses.push_back("*:80");
+		setAddresses(addresses);
 		return (0);
-
-	address = parseValue(_block, res.second, ";");
-	if (address.find(" ", 0) != std::string::npos) {
-		addressVec = split(address, ' ');
-		this->setHostPort(addressVec[0]);
-		std::cout << "parse host port : " << this->_host_port << std::endl;
-		if (addressVec.size() > 2)
-			return (printErr("wrong syntax in listen directive"));
-		if (addressVec[1] == "default_server")
-			_default = true;
-		addressVec = split(addressVec[0], ':');
-	}
-	else
-	{
-		this->setHostPort(address);
-		std::cout << "parse no space host port : " << this->_host_port << std::endl;
-		addressVec = split(address, ':');
 	}
 
-	if (addressVec.size() == 1) {
-		if (addressVec[0].find(".", 0) == std::string::npos)
-			setPort(addressVec[0]);
-		else
-			setHost(addressVec[0]);
+	while ((lPos = _block.find("listen", lPos)) != std::string::npos) {
+		scPos = _block.find(";", lPos);
+		addresses.push_back(_block.substr(lPos + 7, scPos - lPos - 7));
+		lPos += 1;
+		scPos += 1;
 	}
-	else if (addressVec.size() == 2) {
-		setHost(addressVec[0]);
-		setPort(addressVec[1]);
-	}
-	else
-		return (printErr("wrong syntax in listen directive"));
+	setAddresses(addresses);
 
 	return (0);
 }
@@ -197,7 +159,7 @@ int							ServerBlock::parseClntSize () {
 	if (res.first == false)
 		return (0);
 
-	clntSize = MiBToBits(parseValue(_block, res.second, ";"));
+	clntSize = strToInt(parseValue(_block, res.second, ";"));
 
 	if (clntSize < 0)
 		return (printErr("wrong client max body size (should be positive)"));
@@ -276,7 +238,7 @@ int							ServerBlock::parseIndex () {
 int							ServerBlock::parse () {
 	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
 
-	parseAddress();
+	parseAddresses();
 	parseName();
 	parseErrPages();
 	parseClntSize();
@@ -296,10 +258,10 @@ int							ServerBlock::parse () {
 
 void	ServerBlock::print_server_block()
 {
-	std::cout << "serverblock : " << this->_block << std::endl;
-	std::cout << "serverblock host : " << this->_host << std::endl;
-	std::cout << "serverblock port : " << this->_port << std::endl;
-	std::cout << "serverblock default : " << this->_default << std::endl;
+	std::cout << "serveraddresses : ";
+	for (size_t i = 0; i < _addresses.size(); i++)
+		std::cout << _addresses[i] << ",";
+	std::cout << std::endl;
 	std::cout << "serverblock name : " << this->_name << std::endl;
 	if (this->_errPages.size() != 0)
 	{
@@ -309,7 +271,7 @@ void	ServerBlock::print_server_block()
 	else
 		std::cout << "serverblock has no errorpages\n";
 	std::cout << "serverblock clntsize : " << this->_clntSize << std::endl;
-	std::cout << "root : " << this->_root;
+	std::cout << "root : " << this->_root << std::endl;
 	if (this->_locations.size() != 0)
 	{
 		std::cout << GREEN << "serverblock has location block\n";
@@ -330,7 +292,6 @@ void	ServerBlock::print_server_block()
 	}
 	else
 		std::cout << "serverblock has no methods\n";
-	std::cout << "serverblock redirect : " << this->_redirect << std::endl;
 	std::cout << "serverblock autoindex : " << this->_autoindex << std::endl;
 	if (this->_index.size() != 0)
 	{

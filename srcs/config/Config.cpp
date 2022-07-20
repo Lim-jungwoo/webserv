@@ -33,7 +33,7 @@ int							Config::parse (std::string file) {
 
 	for (size_t i = 0; i < this->_server_block.size(); i++)
 	{
-		std::cout << "after parsing server block host port : " << this->_server_block[i].getHostPort() << std::endl;
+		std::cout << "after parsing server block host port : " << this->_server_block[i].getAddresses()[0] << std::endl;
 	}
 
 	return (0);
@@ -122,17 +122,19 @@ int	Config::serverStart()
 int							Config::initServer(const std::string& conf_file)
 {
 	//먼저 parsing부터
-	if (this->parse(conf_file) == 1)
+	if (parse(conf_file) == 1)
 		return (1);
 
-	for (size_t i = 0; i < this->_server_block.size(); i++)
+	for (size_t i = 0; i < _server_block.size(); i++)
 	{
-		Server	server;
-		this->_server_vec.push_back(server);
+		for (size_t j = 0; j < _server_block[i].getAddresses().size(); j++)
+			_server_vec.push_back(Server());
 	}
 
-	std::vector<Server>::iterator	it = this->_server_vec.begin();
-	for (size_t i = 0; i < this->_server_block.size(); i++, it++)
+	std::vector<Server>::iterator	it = _server_vec.begin();
+
+	// TODO: VECTOR INIT !!! SERVER_VEC VS SERVER_BLOCK
+	for (size_t i = 0; i < _server_block.size(); i++, it++)
 	{
 		//먼저 host와 port를 통해서 server의 listen을 초기화
 		if (this->_server_vec[i].init_listen(this->_server_block[i].getHostPort()) == 1)
@@ -186,10 +188,8 @@ int							Config::initServer(const std::string& conf_file)
 		for (size_t location_num = 0; location_num < this->_server_block[i].getLocationBlocks().size();
 			location_num++)
 			this->_server_vec[i]._locations.push_back(this->_server_block[i].getLocationBlocks()[location_num]);
-
-		
 	}
 
-	this->serverStart();
+//	this->serverStart();
 	return (0);
 }
