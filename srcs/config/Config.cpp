@@ -192,13 +192,6 @@ int							Config::initServer(const std::string& conf_file)
 		}
 	}
 
-	// bind / init_server_socket error when server tries to listen to the port which already exists in the server_vector
-	for (size_t i = 0; i < _server_vec.size() - 1; i++) {
-		for (size_t j = 1; j < _server_vec.size(); j++)
-			if (i != j && _server_vec[i]._listen.port == _server_vec[j]._listen.port)
-				std::cerr << "SAME PORT!!!" << std::endl;
-	}
-
 	this->serverStart();
 
 	return (0);
