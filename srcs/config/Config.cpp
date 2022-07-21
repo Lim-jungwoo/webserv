@@ -133,63 +133,73 @@ int							Config::initServer(const std::string& conf_file)
 
 	std::vector<Server>::iterator	it = _server_vec.begin();
 
-	// TODO: VECTOR INIT !!! SERVER_VEC VS SERVER_BLOCK
+	size_t	vec_i = 0;
 	for (size_t i = 0; i < _server_block.size(); i++, it++)
 	{
-		//먼저 host와 port를 통해서 server의 listen을 초기화
-		if (this->_server_vec[i].init_listen(this->_server_block[i].getHostPort()) == 1)
-		{
-			std::cerr << "host port : " << this->_server_block[i].getHostPort() << " listen error\n";
-			this->_server_vec.erase(it);
-			continue ;
+		for (size_t j = 0; j < _server_block[i].getAddresses().size(); j++, vec_i++) {
+			//먼저 host와 port를 통해서 server의 listen을 초기화
+			if (this->_server_vec[vec_i].init_listen(this->_server_block[i].getAddresses()[j]) == 1)
+			{
+//				std::cerr << "host port : " << this->_server_block[i].getAddresses()[j] << " listen error\n";
+				this->_server_vec.erase(it);
+				continue ;
+			}
+
+			//server name 초기화
+			this->_server_vec[vec_i]._response.setServer(this->_server_block[i].getName());
+//			std::cout << "server name : " << this->_server_vec[vec_i]._response._server << std::endl;
+
+			//allow method를 초기화
+			this->_server_vec[vec_i]._response.initAllowMethod(this->_server_block[i].getMethods());
+//			std::cout << "allow method : ";
+//			for (std::set<std::string>::iterator it = this->_server_vec[vec_i]._response._allow_method.begin();
+//				it != this->_server_vec[vec_i]._response._allow_method.end(); it++)
+//				std::cout << *it << ", ";
+//			std::cout << std::endl;
+
+			//root를 초기화, location을 고려해야 된다.
+			this->_server_vec[vec_i]._response._root = this->_server_block[i].getRoot();
+//			std::cout << "server root : " << this->_server_vec[vec_i]._response._root << std::endl;
+
+			//error code에 따른 error page초기화
+			if (this->_server_block[i].getErrPages().empty() == 1)
+			{//config 파일에 정해진 error page가 없으면 임의로 초기화시켜준다.
+				this->_server_vec[vec_i]._response.initErrorHtml();
+			}
+			else
+			{
+				this->_server_vec[vec_i]._response.setErrorHtml(this->_server_block[i].getErrPages());
+			}
+//			print_errmap(this->_server_vec[vec_i]._response._error_html);
+
+			//clntsize 초기화
+			this->_server_vec[vec_i]._client_max_body_size = this->_server_block[i].getClntSize();
+//			std::cout << "client max body size : " << this->_server_vec[vec_i]._client_max_body_size << std::endl;
+
+			//autoindex를 초기화
+			this->_server_vec[vec_i]._auto_index = this->_server_block[i].getAutoindex();
+//			std::cout << "auto index : " << (this->_server_vec[vec_i]._auto_index == true ? "true" : "false") << std::endl;
+
+			//index를 초기화
+			this->_server_vec[vec_i]._index = this->_server_block[i].getIndex();
+//			std::cout << "index : ";
+//			print_vec(this->_server_vec[vec_i]._index);
+
+			//server block의 location을 server로 넘겨준다
+			for (size_t location_num = 0; location_num < this->_server_block[i].getLocationBlocks().size();
+				location_num++)
+				this->_server_vec[vec_i]._locations.push_back(this->_server_block[i].getLocationBlocks()[location_num]);
 		}
-
-		//server name 초기화
-		this->_server_vec[i]._response.setServer(this->_server_block[i].getName());
-		std::cout << "server name : " << this->_server_vec[i]._response._server << std::endl;
-
-		//allow method를 초기화
-		this->_server_vec[i]._response.initAllowMethod(this->_server_block[i].getMethods());
-		std::cout << "allow method : ";
-		for (std::set<std::string>::iterator it = this->_server_vec[i]._response._allow_method.begin();
-			it != this->_server_vec[i]._response._allow_method.end(); it++)
-			std::cout << *it << ", ";
-		std::cout << std::endl;
-
-		//root를 초기화, location을 고려해야 된다.
-		this->_server_vec[i]._response._root = this->_server_block[i].getRoot();
-		std::cout << "server root : " << this->_server_vec[i]._response._root << std::endl;
-
-		//error code에 따른 error page초기화
-		if (this->_server_block[i].getErrPages().empty() == 1)
-		{//config 파일에 정해진 error page가 없으면 임의로 초기화시켜준다.
-			this->_server_vec[i]._response.initErrorHtml();
-		}
-		else
-		{
-			this->_server_vec[i]._response.setErrorHtml(this->_server_block[i].getErrPages());
-		}
-		print_errmap(this->_server_vec[i]._response._error_html);
-
-		//clntsize 초기화
-		this->_server_vec[i]._client_max_body_size = this->_server_block[i].getClntSize();
-		std::cout << "client max body size : " << this->_server_vec[i]._client_max_body_size << std::endl;
-
-		//autoindex를 초기화
-		this->_server_vec[i]._auto_index = this->_server_block[i].getAutoindex();
-		std::cout << "auto index : " << (this->_server_vec[i]._auto_index == true ? "true" : "false") << std::endl;
-
-		//index를 초기화
-		this->_server_vec[i]._index = this->_server_block[i].getIndex();
-		std::cout << "index : ";
-		print_vec(this->_server_vec[i]._index);
-
-		//server block의 location을 server로 넘겨준다
-		for (size_t location_num = 0; location_num < this->_server_block[i].getLocationBlocks().size();
-			location_num++)
-			this->_server_vec[i]._locations.push_back(this->_server_block[i].getLocationBlocks()[location_num]);
 	}
 
-//	this->serverStart();
+	// bind / init_server_socket error when server tries to listen to the port which already exists in the server_vector
+	for (size_t i = 0; i < _server_vec.size() - 1; i++) {
+		for (size_t j = 1; j < _server_vec.size(); j++)
+			if (i != j && _server_vec[i]._listen.port == _server_vec[j]._listen.port)
+				std::cerr << "SAME PORT!!!" << std::endl;
+	}
+
+	this->serverStart();
+
 	return (0);
 }
