@@ -28,39 +28,76 @@ class Response : public ResponseHeader
 			return (0);
 		}
 
+		std::string	responseErr(Response *response)
+		{
+			int	code = response->_code;
 
-		int	verify_method(int fd)
+			if (response->_error_html.find(code) != response->_error_html.end())
+				response->_path = response->_error_html[code];
+
+			std::string	header = response->getHeader();
+			std::map<int, std::string>::iterator	it = response->_error_html.find(code);
+			if (it != response->_error_html.end())
+				header += response->readHtml(it->second);
+
+			return (header);
+		}
+
+		int	verify_method(int fd, Response *response, int request_end)
 		{//요청마다 header를 만들어야 하고 에러가 발생했을 때에 errormap을 적절히 불러와야 한다.
 			//request의 method를 확인한다.
 			std::string	total_response;
-			int			write_size;
+			int			error = 0;
 
-			if (check_allow_method() == 1)
+			int			code = response->_code;
+
+			if (code == Bad_Request || code == Internal_Server_Error || code == Payload_Too_Large)
 			{
-				total_response = this->getHeader();
+				error = 1;
+				total_response = responseErr(response);
 			}
-			else if (this->_method == "GET")
-				total_response = this->getMethod(this->_path, fd);
-			else if (this->_method == "POST")
-				total_response = this->postMethod(this->_path, fd, this->_body);
-			else if (this->_method == "PUT")
-				total_response = this->putMethod(this->_path, fd, this->_body);
-			else if (this->_method == "DELETE")
-				total_response = this->deleteMethod(this->_path, fd);
 
-			std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
-			if (it != this->_error_html.end())
-				total_response += this->readHtml(it->second);
-			else if (this->_code != Created && this->_code != No_Content && this->_code != OK)
-				total_response += ERROR_HTML;
+			if (request_end)
+			{
+				if (response->getPath() == "/")
+				{
+					error = 1;
+					response->setCode(Method_Not_Allowed);
+					total_response = responseErr(response);
+				}
+
+				else
+				{
+					if (check_allow_method() == 1)
+						total_response = this->getHeader();
+					else if (this->_method == "GET")
+						total_response = this->getMethod(this->_path, fd);
+					else if (this->_method == "POST")
+						total_response = this->postMethod(this->_path, fd, this->_body);
+					else if (this->_method == "PUT")
+						total_response = this->putMethod(this->_path, fd, this->_body);
+					else if (this->_method == "DELETE")
+						total_response = this->deleteMethod(this->_path, fd);
+
+					std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
+					if (it != this->_error_html.end())
+						total_response += this->readHtml(it->second);
+					else if (this->_code != Created && this->_code != No_Content && this->_code != OK)
+						total_response += ERROR_HTML;
+				}
+			}
 
 			std::cout << YELLOW << "\n==========response=========\n" << total_response << RESET;
-			if ((write_size = ::send(fd, total_response.c_str(),
-				total_response.size(), 0)) == -1)
+
+			int	write_size = ::send(fd, total_response.c_str(), total_response.size(), 0);
+
+			if (error || write_size == -1)
 			{
-				std::cerr << "RESPONSE SEND ERROR\n";
+				if (!error)
+					std::cerr << "RESPONSE SEND ERROR" << std::endl;
 				return (1);
 			}
+			
 			return (0);
 		}
 
