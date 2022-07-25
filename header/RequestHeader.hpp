@@ -85,6 +85,9 @@ class RequestHeader : public EntityHeader
 				if (strncmp((*it).c_str(), "Host:", 5) == 0)
 				{//Host의 값을 찾아서 값을 넣어준다.
 					this->_host = find_header_value(*it);
+					// http://는 자른다.
+					if (_host.find("http://", 0) != std::string::npos)
+						_host = _host.substr(7, _host.length() - 7);
 					if (this->setListen(this->_host) == 1)
 						return (1);
 				}
