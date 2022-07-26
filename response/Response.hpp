@@ -62,6 +62,7 @@ class Response : public ResponseHeader
 				if (response->getPath() == "/")
 				{
 					error = 1;
+					std::cout << "HHHHHHEEEEEEEEEeHAAAAAAAAADDDDDDDD" << std::endl;
 					response->setCode(Method_Not_Allowed);
 					total_response = responseErr(response);
 				}
@@ -72,6 +73,11 @@ class Response : public ResponseHeader
 						total_response = this->getHeader();
 					else if (this->_method == "GET")
 						total_response = this->getMethod(this->_path, fd);
+					else if (this->_method == "HEAD")
+					{
+						std::cout << RED << "HEAD METHOD" << RESET << std::endl;
+						total_response = this->headMethod(this->_path, fd);
+					}
 					else if (this->_method == "POST")
 						total_response = this->postMethod(this->_path, fd, this->_body);
 					else if (this->_method == "PUT")
@@ -130,6 +136,37 @@ class Response : public ResponseHeader
 			this->setContentLength(buffer.str().length());
 			file_content = this->getHeader();
 			file_content += buffer.str();
+			file.close();
+			return (file_content);
+		}
+
+		std::string	headMethod(std::string& path, int fd)
+		{
+			std::string			file_content = "";
+			std::ifstream		file;
+			std::stringstream	buffer;
+			(void)fd;
+			if (compare_end(path, "Yeah") == 0)
+			{
+				std::cout << "path is Yeah so not found\n";
+				this->setCode(Not_Found);
+			}
+			else
+			{
+				file.open(path.c_str(), std::ifstream::in);
+				if (file.is_open() == false)
+				{
+					std::cout << "FILE OPEN ERROR\n";
+					this->setCode(Not_Found);
+				}
+				else
+				{
+					this->setCode(OK);
+					buffer << file.rdbuf();
+				}
+			}
+			this->setContentLength(buffer.str().length());
+			file_content = this->getHeader();
 			file.close();
 			return (file_content);
 		}
