@@ -1,8 +1,8 @@
 #ifndef SERVER_HPP
 # define SERVER_HPP
 
-// # include "../cgi/cgi.hpp"
-# include "../response/Response.hpp"
+# include "../cgi/cgi.hpp"
+// # include "../response/Response.hpp"
 
 class Server
 {
@@ -248,9 +248,6 @@ class Server
 		{
 			if (location_block.getIsEmpty() == true)
 				return ;
-			// if (location_block.getURI() != "" && (this->_response._method == "GET" ||
-			// 	(this->_response._method != "GET" && this->_response._path != "/")))
-			// 	this->_response._path = location_block.getURI();
 			if (location_block.getURI() != "" && (_response._method == "GET" ||
 				(_response._method != "GET" && _response._path != "/")))
 				_response._path = location_block.getURI();
@@ -521,41 +518,10 @@ class Server
 			{
 				if (_response.verify_method(fd, &_response, _request_end) == 1)
 					disconnect_request(fd);
-				if (_request_end == 1)
-				{
-					std::cout << RED << "=========total request========\n" << this->_request[fd] << RESET << std::endl;
-					responseERR(fd);
-				}
 				if (this->_request_end == 1) 
 					// this->_response.getErrorMap().find(this->_response.getCode()) != this->_response.getErrorMap().end())
 				{
-					// responseERR(fd);
-					// return ;
-					// std::cout << "verify_method: " << this->_response._method << ", code :  " << this->_response._code << std::endl;
-					// std::cout << RED << "response path : " << this->_response.getPath() << RESET << std::endl;
-					// if (this->_response.getPath() == "/")
-					// {
-					// 	this->_response.setCode(Method_Not_Allowed);
-					// 	responseERR(fd);
-					// }
-					// else
-					// {
-					// 	if (this->_response.verify_method(fd, &this->_cgi) == 1)
-					// 		disconnect_request(fd);
-					// 	if (this->_response._connection == "close")
-					// 		disconnect_request(fd);
-					// 	else
-					// 	{
-					// 		this->_request[fd].clear();
-					// 		this->_request_end = 0;
-					// 		this->_body_condition = No_Body;
-					// 		this->_response.initRequest();
-					// 		this->_is_check_request_line = 0;
-					// 		this->_body_start_pos = 0;
-					// 		this->_body_end = 0;
-					// 		this->_body_vec_size = 0;
-					// 		this->_body_vec_start_pos = 0;
-					// 	}
+					
 					std::cout << "verify_method, code :  " <<  _response._code << std::endl;
 					std::cout << RED << "response path : " << _response.getPath() << RESET << std::endl;
 					if (_response._connection == "close")
@@ -569,6 +535,8 @@ class Server
 						_is_check_request_line = 0;
 						_body_start_pos = 0;
 						_body_end = 0;
+						this->_body_vec_size = 0;
+					// 		this->_body_vec_start_pos = 0;
 					}
 				}
 			}

@@ -19,6 +19,7 @@ class	LocationBlock {
 		std::vector<LocationBlock>	_locations;
 
 		bool						_is_empty;
+		std::string					_path;
 
 	public:
 		// constructor, destructor, assignment operator overload
@@ -41,6 +42,7 @@ class	LocationBlock {
 		std::string					getCGI () const;
 		std::vector<LocationBlock>	getLocationBlocks () const;
 		bool						getIsEmpty() const;
+		std::string					getPath() const;
 
 		// setter
 		void						setMod (int mod);
@@ -54,6 +56,7 @@ class	LocationBlock {
 		void						setCGI (std::string cgi);
 		void						addLocationBlock (LocationBlock lc);
 		void						setIsEmpty(bool is_empty);
+		void						setPath(const std::string& path);
 
 		// parse
 		int							parseModMatch ();

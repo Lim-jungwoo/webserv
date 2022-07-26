@@ -45,6 +45,7 @@ int							compareURIsWithWildcard (std::string URI, std::string request, int mod
 
 #include <cstring> //memset
 #include <cctype> //isalpha
+#include <cmath>
 
 # define CGI_BUF_SIZE 65536
 # define LISTEN_BUFFER_SIZE 1024
@@ -181,5 +182,6 @@ int	isStrUpper(const std::string& str);
 int	make_html(const std::string& html_name, int code,
 	const std::string& code_str, const std::string& server_name);
 
+size_t	calExponent(const std::string& str);
 
 #endif

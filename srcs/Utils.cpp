@@ -481,6 +481,26 @@ int	make_html(const std::string& html_name, int code,
 	return (0);
 }
 
+size_t	calExponent(const std::string& str)
+{
+	size_t	e_pos = str.find("e");
+	std::string	num_str;
+	std::string	exponent_str;
+	size_t		num;
+	size_t		exponent;
+	if (e_pos != std::string::npos)
+	{
+		num_str = str.substr(0, e_pos);
+		exponent_str = str.substr(e_pos + 1, str.length() - e_pos - 1);
+		num = std::atoi(num_str.c_str());
+		exponent = std::atoi(exponent_str.c_str());
+		return (num * powl(exponent, 10));
+	}
+	else
+		num = std::atoi(str.c_str());
+	return (num);
+}
+
 // int	main()
 // {
 // 	std::string	str1 = "SHOW1234";

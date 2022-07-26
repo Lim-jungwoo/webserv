@@ -7,11 +7,16 @@ class Cgi
 {
 	public:
 		Cgi() { this->_body = "body"; }
-		Cgi(Cgi const& cgi) {}
-		virtual ~Cgi() {}
+		Cgi(Cgi const& cgi) { (void)cgi; }
+		virtual ~Cgi() { }
 
-		Cgi&	operator=(Cgi const& cgi) { return (*this); }
+		Cgi&	operator=(Cgi const& cgi) { (void)cgi; return (*this); }
 
+		void	setEnv(const std::string& env_key, const std::string& env_value)
+		{ _env[env_key] = env_value; }
+		void	setCgiExist(const int& exist) { _is_exist = exist; }
+		int		getCgiExist() { return (_is_exist); }
+		std::map<std::string, std::string>	getEnv() { return (_env); }
 
 		std::string	exectueCgi(const std::string& scriptName)
 		{//인자로 받은 script를 실행하고 script결과를 리턴한다.
@@ -185,6 +190,7 @@ class Cgi
 	private:
 		std::map<std::string, std::string>	_env;
 		std::string							_body;
+		int									_is_exist;
 		char**	envToChar() const
 		{
 			char	**env = new char*[this->_env.size() + 1];

@@ -389,6 +389,7 @@ class RequestHeader : public EntityHeader
 		std::string	_body;
 		size_t		_body_size;
 		std::string	_root;
+		std::vector<std::string>	_body_vec;
 
 		/*
 		//사용안할 것 같은 것

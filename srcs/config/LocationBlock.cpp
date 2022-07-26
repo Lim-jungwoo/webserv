@@ -77,6 +77,7 @@ std::vector<std::string>	LocationBlock::getIndex () const { return (_index); }
 std::string					LocationBlock::getCGI () const { return (_cgi); }
 std::vector<LocationBlock>	LocationBlock::getLocationBlocks () const { return (_locations); }
 bool						LocationBlock::getIsEmpty() const { return (this->_is_empty); }
+std::string					LocationBlock::getPath() const { return (this->_path); }
 
 void						LocationBlock::setMod (int mod) { _mod = mod; }
 void						LocationBlock::setURI (std::string uri) { _uri = uri; }
@@ -88,6 +89,7 @@ void						LocationBlock::setAutoindex (int autoindex) { _autoindex = autoindex; 
 void						LocationBlock::setIndex (std::vector<std::string> index) { _index = index; }
 void						LocationBlock::setCGI (std::string cgi) { _cgi = cgi; }
 void						LocationBlock::addLocationBlock (LocationBlock lc) { _locations.push_back(lc); }
+void						LocationBlock::setPath(const std::string& path) { _path = path; }
 
 int							LocationBlock::parseModMatch () {
 	size_t	pos = 0, bracketPos = _block.find("{", 0);
