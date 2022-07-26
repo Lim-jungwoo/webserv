@@ -122,6 +122,7 @@ class EntityHeader : public GeneralHeader
 			this->_possible_method.insert("POST");
 			this->_possible_method.insert("PUT");
 			this->_possible_method.insert("DELETE");
+			this->_possible_method.insert("HEAD");
 		}
 
 		void	setAllowMethod(const std::string& method)

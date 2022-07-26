@@ -194,8 +194,8 @@ int							ServerBlock::parseMethods () {
 		return (0);
 
 	for (size_t i = 0; i < _methods.size(); i++) {
-		if (_methods[i] != "GET" && _methods[i] != "POST" && _methods[i] != "DELETE")
-			return (printErr("wrong method (GET, POST, DELETE)"));
+		if (_methods[i] != "GET" && _methods[i] != "POST" && _methods[i] != "DELETE" && _methods[i] != "PUT" && _methods[i] != "HEAD")
+			return (printErr("wrong method (GET, POST, DELETE, PUT, HEAD)"));
 	}
 
 	return (0);
