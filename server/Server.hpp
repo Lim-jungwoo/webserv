@@ -167,17 +167,20 @@ class Server
 				if (_locations[i].getMod() == NONE || _locations[i].getMod() == PREFERENTIAL)
 				{
 					std::cout << "locations uri : " << _locations[i].getURI() << ", requestURI first : " << requestURIvec[0] << std::endl;
-					// if (_locations[i].getURI().find(requestURIvec[0], 0) != std::string::npos) {
 						// first, check if the two URIs match
-					if (_locations[i].getURI() == requestURI)
+					if (_locations[i].getURI() == requestURIvec[0])
 					{
 						std::string	change_path = "";
 						if (requestURI.at(requestURI.length() - 1) == '/')
 							requestURI.substr(0, requestURI.length() - 1);
-						size_t	last_slash_pos = requestURI.find_last_of("/");
-						if (last_slash_pos != std::string::npos)
-							change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
-						_locations[i].setPath(_response._root + change_path);
+						size_t	first_slash_pos = requestURI.find_first_of("/");
+						if (first_slash_pos != std::string::npos)
+							change_path = requestURI.substr(first_slash_pos, requestURI.length() - first_slash_pos);
+						// size_t	last_slash_pos = requestURI.find_last_of("/");
+						// if (last_slash_pos != std::string::npos)
+						// 	change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
+						// 	_locations[i].getRoot();
+						_locations[i].setPath(_locations[i].getRoot() + change_path);
 						locationBlocks.push_back(_locations[i]);
 					}
 					// then, check for the level of the request URI
@@ -189,10 +192,10 @@ class Server
 						size_t	last_slash_pos = requestURI.find_last_of("/");
 						if (last_slash_pos != std::string::npos)
 							change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
-						_locations[i].setPath(_response._root + change_path);
+						_locations[i].setPath(_locations[i].getRoot() + change_path);
 						locationBlocks.push_back(_locations[i]);
 					}
-					else
+					if (requestURIvec.size() >= 2)
 					{
 						// if the request URI has more than one slashes (nested), get the nested locations and compare their URIs
 						std::cout << CYAN << "request uri : " << requestURI << ", location uri: " << _locations[i].getURI() << ";;\n" << RESET;
@@ -206,7 +209,7 @@ class Server
 								size_t	last_slash_pos = requestURI.find_last_of("/");
 								if (last_slash_pos != std::string::npos)
 									change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
-								nested[j].setPath(_response._root + change_path);
+								nested[j].setPath(nested[j].getRoot() + change_path);
 								locationBlocks.push_back(nested[j]);
 							}
 						}
@@ -216,7 +219,7 @@ class Server
 							size_t	first_slash_pos = requestURI.find_first_of("/");
 							if (first_slash_pos != std::string::npos)
 								change_path = requestURI.substr(first_slash_pos, requestURI.length() - first_slash_pos);
-							_locations[i].setPath(_response._root + change_path);
+							_locations[i].setPath(_locations[i].getRoot() + change_path);
 							locationBlocks.push_back(_locations[i]);
 						}
 					}
@@ -250,7 +253,7 @@ class Server
 				return ;
 			if (location_block.getURI() != "" && (_response._method == "GET" ||
 				(_response._method != "GET" && _response._path != "/")))
-				_response._path = location_block.getURI();
+				_response._path = location_block.getPath();
 			if (location_block.getClntSize() != READ_BUFFER_SIZE)
 				_client_max_body_size = location_block.getClntSize();
 			if (location_block.getMethods().empty() == false)
@@ -264,9 +267,10 @@ class Server
 				if ((uri_pos = this->_response.getPath().find(location_block.getURI())) != std::string::npos)
 				{
 					std::cout << CYAN << "location uri: " << location_block.getURI() << RESET << std::endl;
-					this->_response.setPath(this->_response.getPath().substr(uri_pos + location_block.getURI().length(),
-						this->_response.getPath().length() - uri_pos - location_block.getURI().length()));
-					this->_response.setPath(this->_response.getRoot() + this->_response.getPath());
+					// this->_response.setPath(this->_response.getPath().substr(uri_pos + location_block.getURI().length(),
+					// 	this->_response.getPath().length() - uri_pos - location_block.getURI().length()));
+					// this->_response.setPath(this->_response.getRoot() + this->_response.getPath());
+					this->_response.setPath(location_block.getPath());
 					std::cout << RED << "select location and path change : " << this->_response.getPath() << RESET << std::endl;
 				}
 			}
@@ -311,7 +315,6 @@ class Server
 				n = ::recv(fd, buf, READ_BUFFER_SIZE - 1, 0);
 				buf[n] = '\0';
 				_request[fd] += buf;
-				std::cout << RED <<  "============request==========\n" << _request[fd] << RESET;
 				if (_response._body_size != 0
 					&& _request[fd].length() - _body_start_pos >= _response._body_size)
 				{//body size만큼 입력 받았을 때
@@ -460,10 +463,10 @@ class Server
 						this->_response._body_vec.push_back(_body_element);
 						this->_body_vec_size = 0;
 					}
-					std::cout << RED << "body vec start pos: " << this->_body_vec_start_pos;
-					std::cout << ", body vec size: " << this->_body_vec_size;
-					std::cout << "request length: " << this->_request[fd].length() << RESET << std::endl;
-					usleep(100);
+					// std::cout << RED << "body vec start pos: " << this->_body_vec_start_pos;
+					// std::cout << ", body vec size: " << this->_body_vec_size;
+					// std::cout << "request length: " << this->_request[fd].length() << RESET << std::endl;
+					// usleep(100);
 
 					if (this->_request[fd].find("0\r\n\r\n") != std::string::npos &&
 						(this->_body_vec_start_pos == 0 ||
@@ -484,6 +487,7 @@ class Server
 						return ;
 					
 				}
+				std::cout << RED <<  "============request==========\n" << _request[fd] << RESET;
 
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
@@ -521,7 +525,6 @@ class Server
 				if (this->_request_end == 1) 
 					// this->_response.getErrorMap().find(this->_response.getCode()) != this->_response.getErrorMap().end())
 				{
-					
 					std::cout << "verify_method, code :  " <<  _response._code << std::endl;
 					std::cout << RED << "response path : " << _response.getPath() << RESET << std::endl;
 					if (_response._connection == "close")
