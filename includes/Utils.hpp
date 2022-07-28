@@ -49,7 +49,7 @@ int							compareURIsWithWildcard (std::string URI, std::string request, int mod
 
 # define CGI_BUF_SIZE 65536
 # define LISTEN_BUFFER_SIZE 1024
-# define READ_BUFFER_SIZE	1024
+# define READ_BUFFER_SIZE	100000
 
 # define END_TRANSMIT		4
 

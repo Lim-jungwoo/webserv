@@ -24,6 +24,7 @@ class Server
 		int							_body_end;
 		size_t						_body_vec_size;
 		size_t						_body_vec_start_pos;
+		size_t						_rn_pos;
 
 		//configuation file 관련
 		size_t						_client_max_body_size;
@@ -415,7 +416,6 @@ class Server
 				if ((_body_condition == Body_Start || _body_condition == Body_End)
 					&& _body_end == 0)
 				{
-					std::cout << "received data from " << fd << ": " << _request[fd] << std::endl;
 					if (check_request_line_ret == 1 || check_request_line_ret == 9)
 						;
 					else if (_response.request_split(_request[fd], _body_condition) == 1)
@@ -432,25 +432,28 @@ class Server
 					this->_request_end = 1;
 					this->_request[fd] = this->_request[fd].substr(0, this->_body_start_pos + this->_response._body_size);
 				}
-				static size_t rn_pos;
 				if (this->_response._transfer_encoding == "chunked")
 				{//content_length가 없고, transfer_encoding이 chunked일 때 파일의 끝을 알리는 것이 들어올 때까지 계속 recv
 					if (this->_response._path != "/")
 					{
-						if (rn_pos <= this->_body_start_pos)
-							rn_pos = this->_body_start_pos;
-						else
-							rn_pos = this->_body_vec_start_pos;
-						size_t	body_size = this->_request[fd].find("\r\n", rn_pos);
+						if (_rn_pos <= this->_body_start_pos)
+							_rn_pos = this->_body_start_pos;
+						size_t	body_size = this->_request[fd].find("\r\n", _rn_pos + 3);
+						std::cout << "rn pos: " << _rn_pos << ", body start pos: " << this->_body_start_pos << std::endl;
+						// std::cout << "!!!!!!!!!!request!!!!!!!" << this->_request[fd].substr(0, _rn_pos) << std::endl;
 						if (body_size != std::string::npos && this->_body_vec_size == 0)
 						{
-							std::string	body_size_str = this->_request[fd].substr(rn_pos,
-								body_size - rn_pos);
+							std::string	body_size_str = this->_request[fd].substr(_rn_pos,
+								body_size - _rn_pos);
 							if (body_size_str.find("e") != std::string::npos)
 								this->_body_vec_size = calExponent(body_size_str);
 							else
 								this->_body_vec_size = std::atoi(body_size_str.c_str());
-							this->_body_vec_start_pos = body_size + 2                     ;
+							this->_body_vec_start_pos = body_size + 2;
+							_rn_pos = _body_vec_start_pos + this->_body_vec_size;
+							std::cout << GREEN << "body vec size: " << this->_body_vec_size << std::endl;
+							std::cout << "body size: " << body_size_str.length() << RESET << std::endl;
+							// std::cout << "body_size_str: " << body_size_str << RESET << std::endl;
 							if (this->_body_vec_size == 0)
 								this->_response.setCode(Bad_Request);
 						}
@@ -461,12 +464,13 @@ class Server
 						std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
 							this->_body_vec_size);
 						this->_response._body_vec.push_back(_body_element);
+						this->_body_vec_start_pos += this->_body_vec_size;
 						this->_body_vec_size = 0;
 					}
-					// std::cout << RED << "body vec start pos: " << this->_body_vec_start_pos;
-					// std::cout << ", body vec size: " << this->_body_vec_size;
-					// std::cout << "request length: " << this->_request[fd].length() << RESET << std::endl;
-					// usleep(100);
+					std::cout << RED << "body vec start pos: " << this->_body_vec_start_pos;
+					std::cout << ", body vec size: " << this->_body_vec_size;
+					std::cout << "request length: " << this->_request[fd].length() << RESET << std::endl;
+					usleep(100);
 
 					if (this->_request[fd].find("0\r\n\r\n") != std::string::npos &&
 						(this->_body_vec_start_pos == 0 ||
@@ -508,7 +512,9 @@ class Server
 						if (this->_response._transfer_encoding == "chunked" &&
 							this->_response._body_vec.empty() == false)
 						{
-							this->_response._body = *this->_response._body_vec.begin();
+							for (std::vector<std::string>::iterator it = _response._body_vec.begin();
+								it != _response._body_vec.end(); it++)
+								this->_response._body += *it;
 						}
 						// std::cout << YELLOW << "=====BODY=====\n" << this->_response._body << RESET << std::endl;
 					}
@@ -539,7 +545,8 @@ class Server
 						_body_start_pos = 0;
 						_body_end = 0;
 						this->_body_vec_size = 0;
-					// 		this->_body_vec_start_pos = 0;
+						this->_body_vec_start_pos = 0;
+						this->_rn_pos = 0;
 					}
 				}
 			}

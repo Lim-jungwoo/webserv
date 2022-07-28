@@ -59,25 +59,22 @@ class Response : public ResponseHeader
 
 			if (request_end)
 			{
-				if (response->getPath() == "/")
+				if (response->getPath() == "/" && response->_method != "GET")
 				{
 					error = 1;
-					std::cout << "HHHHHHEEEEEEEEEeHAAAAAAAAADDDDDDDD" << std::endl;
 					response->setCode(Method_Not_Allowed);
 					total_response = responseErr(response);
 				}
-
 				else
 				{
+					if (response->getPath() == "/" && response->_method == "GET")
+						response->setPath(getRoot() + "/index.html");
 					if (check_allow_method() == 1)
 						total_response = this->getHeader();
 					else if (this->_method == "GET")
 						total_response = this->getMethod(this->_path, fd);
 					else if (this->_method == "HEAD")
-					{
-						std::cout << RED << "HEAD METHOD" << RESET << std::endl;
 						total_response = this->headMethod(this->_path, fd);
-					}
 					else if (this->_method == "POST")
 						total_response = this->postMethod(this->_path, fd, this->_body);
 					else if (this->_method == "PUT")
@@ -92,11 +89,9 @@ class Response : public ResponseHeader
 						total_response += ERROR_HTML;
 				}
 			}
-
-			std::cout << YELLOW << "\n==========response=========\n" << total_response << RESET;
-
+			if (total_response != "")
+				std::cout << YELLOW << "#########response########\n" << total_response <<  RESET << std::endl;
 			int	write_size = ::send(fd, total_response.c_str(), total_response.size(), 0);
-
 			if (error || write_size == -1)
 			{
 				if (!error)

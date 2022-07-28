@@ -372,6 +372,7 @@ std::string	find_extension(std::string& file)
 	return (extension);
 }
 
+//슬래쉬의 맨 뒤쪽으로 가서 파일 이름을 찾고, 슬래쉬가 없다면 그대로 path를 반환
 std::string	find_file_name(const std::string& path)
 {
 	size_t	file_name_start = path.find_last_of('/');
@@ -494,7 +495,7 @@ size_t	calExponent(const std::string& str)
 		exponent_str = str.substr(e_pos + 1, str.length() - e_pos - 1);
 		num = std::atoi(num_str.c_str());
 		exponent = std::atoi(exponent_str.c_str());
-		return (num * powl(exponent, 10));
+		return (num * powl(10, exponent));
 	}
 	else
 		num = std::atoi(str.c_str());

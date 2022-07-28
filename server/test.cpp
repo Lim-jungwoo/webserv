@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <cmath>
 
 class test
 {
@@ -57,9 +58,17 @@ class sibal
 		}
 };
 
+size_t	hexToDecimal(std::string& hex)
+{
+	for (std::string::iterator it = hex.begin(); it != hex.end(); it++)
+	{
+		size_t	num;
+		num = *it + '0';
+
+	}
+}
+
 int	main()
 {
-	sibal	test1;
-	test1.set_test();
-	test1.print_test();
+	calExponent("3e8");
 }

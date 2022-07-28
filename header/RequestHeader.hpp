@@ -38,18 +38,8 @@ class RequestHeader : public EntityHeader
 
 			request_line_it++;
 			this->_path = *request_line_it;
-			if (this->_path == "/" && this->_method == "GET")
-			{//path이 /이고 GET일 때만 작동
-				this->_path.clear();
-				this->_path = this->_root + "/index.html";
-			}
-			else if (this->_path != "/")
-			{
-				if (this->_path.at(0) != '/')
-					this->_path = "/" + this->_path;
-				if (this->_path.find(this->_root) == std::string::npos)
-					this->_path = this->_root + this->_path;
-			}
+			if (this->_path != "/" && this->_path.at(0) == '/')
+				this->_path = this->_path.substr(1, this->_path.length() - 1);
 
 			if (this->_method == "GET" && request_line_vec.size() == 2)
 			{//GET method이고, request_line이 2개의 단어로 이루어져 있다면 HTTP/0.9버전이다.
@@ -202,7 +192,6 @@ class RequestHeader : public EntityHeader
 			std::string		str;
 			std::map<std::string, std::string>	ret;
 			std::string		body = "";
-			std::cout << CYAN << "===============request===============\n" << request << RESET << std::endl;
 			while ((r_pos = request.find('\n', start)) != std::string::npos)
 			{//\r을 계속 찾아서 그것을 기준으로 vector에 넣어주자.
 				if (request.at(start) == '\r')

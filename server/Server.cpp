@@ -25,6 +25,9 @@ void	Server::disconnect_request(int request_fd)
 	this->_is_check_request_line = 0;
 	this->_body_start_pos = 0;
 	this->_body_end = 0;
+	this->_body_vec_start_pos = 0;
+	this->_body_vec_size = 0;
+	this->_rn_pos = 0;
 }
 
 void	Server::check_connection(int request_fd)
