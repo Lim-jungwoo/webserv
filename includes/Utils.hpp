@@ -184,4 +184,7 @@ int	make_html(const std::string& html_name, int code,
 
 size_t	calExponent(const std::string& str);
 
+int	checkHex(std::string& hex);
+size_t	hexToDecimal(std::string& hex);
+
 #endif
