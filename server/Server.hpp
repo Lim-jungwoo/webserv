@@ -1,8 +1,8 @@
 #ifndef SERVER_HPP
 # define SERVER_HPP
 
-# include "../cgi/cgi.hpp"
-// # include "../response/Response.hpp"
+// # include "../cgi/cgi.hpp"
+# include "../response/Response.hpp"
 
 class Server
 {
@@ -23,8 +23,10 @@ class Server
 		size_t						_body_start_pos;
 		int							_body_end;
 		size_t						_body_vec_size;
+		size_t						_body_vec_total_size;
 		size_t						_body_vec_start_pos;
 		size_t						_rn_pos;
+		size_t						test_body_size;
 
 		//configuation file 관련
 		size_t						_client_max_body_size;
@@ -60,8 +62,28 @@ class Server
 
 		void	request_accept();
 
+		void	setCgiEnv()
+		{
+			_cgi.setBody(_response._body);
+			std::cout << BLUE << "CGI BODY LENGTH: " << _cgi.getBody().length() << std::endl;
+			// _cgi.setEnv("CONTENT_LENGTH", _response.getContentLength());
+			_cgi.setEnv("CONTENT_LENGTH", intToStr(_cgi.getBody().length()));
+			std::cout << "CGI CONTENT_LENGTH: " << _cgi.getEnv()["CONTENT_LENGTH"] << std::endl;
+			_cgi.setEnv("PATH_INFO", _response._path);
+			std::cout << "CGI PATH_INFO: " << _cgi.getEnv()["PATH_INFO"] << std::endl;
+			_cgi.setEnv("SERVER_PORT", "8000");
+			_cgi.setEnv("SERVER_PROTOCOL", "HTTP/1.1");
+			this->_cgi.setEnv("REDIRECT_STATUS", "200");
+			if (_response._x_header != "")
+			{
+				_cgi.setEnv("HTTP_X_SECRET_HEADER_FOR_TEST", _response._x_header);
+				std::cout << RED << "HTTP_X_SECRET_HEADER_FOR_TEST: " << _cgi.getEnv()["X_SECRET_HEADER_FOR_TEST"] << RESET << std::endl;
+			}
+		}
+
 		void	initCgiEnv()
 		{
+			this->_cgi.setName(_config_cgi);
 			//header에 Auth-Scheme가 존재한다면 AUTH_TYPE환경변수에 header의 Authorization값을 집어넣는다.
 			//AUTH_TYPE은 인증 타입.
 			//만약 client가 액세스에 인증이 필요한 경우, Request Authorization header 필드의 auth-scheme 토큰을 바탕으로 값을 세팅해야 한다.
@@ -177,24 +199,20 @@ class Server
 						size_t	first_slash_pos = requestURI.find_first_of("/");
 						if (first_slash_pos != std::string::npos)
 							change_path = requestURI.substr(first_slash_pos, requestURI.length() - first_slash_pos);
-						// size_t	last_slash_pos = requestURI.find_last_of("/");
-						// if (last_slash_pos != std::string::npos)
-						// 	change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
-						// 	_locations[i].getRoot();
 						_locations[i].setPath(_locations[i].getRoot() + change_path);
 						locationBlocks.push_back(_locations[i]);
 					}
 					// then, check for the level of the request URI
 					else if (requestURIvec.size() == 1)
 					{
-						std::string	change_path = "";
-						if (requestURI.at(requestURI.length() - 1) == '/')
-							requestURI.substr(0, requestURI.length() - 1);
-						size_t	last_slash_pos = requestURI.find_last_of("/");
-						if (last_slash_pos != std::string::npos)
-							change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
-						_locations[i].setPath(_locations[i].getRoot() + change_path);
-						locationBlocks.push_back(_locations[i]);
+						// std::string	change_path = "";
+						// if (requestURI.at(requestURI.length() - 1) == '/')
+						// 	requestURI.substr(0, requestURI.length() - 1);
+						// size_t	last_slash_pos = requestURI.find_last_of("/");
+						// if (last_slash_pos != std::string::npos)
+						// 	change_path = requestURI.substr(last_slash_pos, requestURI.length() - last_slash_pos);
+						// _locations[i].setPath(_locations[i].getRoot() + change_path);
+						// locationBlocks.push_back(_locations[i]);
 					}
 					if (requestURIvec.size() >= 2)
 					{
@@ -242,6 +260,12 @@ class Server
 					ret = i;
 				}
 			}
+
+			for (std::vector<LocationBlock>::iterator it = locationBlocks.begin();
+				it != locationBlocks.end(); it++)
+			{
+				std::cout << CYAN << "location block path: " << (*it).getPath() << RESET << std::endl;
+			}
 			std::cout << PINK << "ret: "<< ret << ", after select location path : " << locationBlocks[ret].getPath();
 			std::cout << ", select location uri: " << locationBlocks[ret].getURI() << RESET << std::endl;
 
@@ -255,8 +279,11 @@ class Server
 			if (location_block.getURI() != "" && (_response._method == "GET" ||
 				(_response._method != "GET" && _response._path != "/")))
 				_response._path = location_block.getPath();
-			if (location_block.getClntSize() != READ_BUFFER_SIZE)
+			if (location_block.getClntSize() != 0)
+			{
 				_client_max_body_size = location_block.getClntSize();
+				std::cout << "client max body size: " << _client_max_body_size << std::endl;
+			}
 			if (location_block.getMethods().empty() == false)
 				_response.initAllowMethod(location_block.getMethods());
 
@@ -286,7 +313,6 @@ class Server
 				this->_cgi.setCgiExist(true);
 				this->initCgiEnv();
 			}
-			
 		}
 
 		void	event_read(int fd)
@@ -306,7 +332,7 @@ class Server
 				int	n;
 				if (_response._content_length != "" && _body_condition == Body_Start)
 				{//저장해놓은 content_length만큼만 받도록 한다.
-					if (_response._body_size >= _client_max_body_size)
+					if (_response._body_size >= _client_max_body_size && _client_max_body_size != 0)
 					{
 						std::cerr << "content length is too big to receive\n";
 						_response.setCode(Payload_Too_Large);
@@ -319,6 +345,7 @@ class Server
 				if (_response._body_size != 0
 					&& _request[fd].length() - _body_start_pos >= _response._body_size)
 				{//body size만큼 입력 받았을 때
+					std::cout << PINK << "body size: " << _response._body_size << ", body start pos: " << _body_start_pos << RESET << std::endl;
 					_request_end = 1;
 					_request[fd] = _request[fd].substr(0, _body_start_pos + _response._body_size);
 				}
@@ -332,8 +359,13 @@ class Server
 				if (_request[fd].find("\r\n") != std::string::npos &&
 					_is_check_request_line == 0)
 				{
+					if (_request[fd].at(0) == 'r' && _request[fd].at(1) == '\n')
+						_request[fd] = _request[fd].substr(2, _request[fd].length() - 2);
+					if (_request[fd].at(0) == '\n')
+						_request[fd] = _request[fd].substr(1, _request[fd].length() - 1);
 					_is_check_request_line = 1;
 					std::cout << "check request line\n";
+					
 					check_request_line_ret = _response.check_request_line(_request[fd]);
 					if (check_request_line_ret == 9)
 					{
@@ -343,6 +375,7 @@ class Server
 					else if (check_request_line_ret == 1)
 					{
 						std::cerr << "check request line error\n";
+						std::cout << RED << "@@@@@@@@request@@@@@@\n" << _request[fd] << RESET << std::endl;
 						_response._http_version = "HTTP/1.1";
 						_response._content_location = "/";
 						_response.setCode(Bad_Request);
@@ -429,52 +462,74 @@ class Server
 				if (this->_response._body_size != 0 && this->_response._content_length != ""
 					&& this->_request[fd].length() - this->_body_start_pos >= this->_response._body_size)
 				{//body size만큼 입력 받았을 때
+					std::cout << PINK << "body size: " << _response._body_size << ", body start pos: " << _body_start_pos << RESET << std::endl;
 					this->_request_end = 1;
 					this->_request[fd] = this->_request[fd].substr(0, this->_body_start_pos + this->_response._body_size);
 				}
 				if (this->_response._transfer_encoding == "chunked")
 				{//content_length가 없고, transfer_encoding이 chunked일 때 파일의 끝을 알리는 것이 들어올 때까지 계속 recv
-					if (this->_response._path != "/")
+					while (_rn_pos < this->_request[fd].length() && this->_response._path != "/")
 					{
 						if (_rn_pos <= this->_body_start_pos)
+						{
 							_rn_pos = this->_body_start_pos;
-						size_t	body_size = this->_request[fd].find("\r\n", _rn_pos + 3);
-						std::cout << "rn pos: " << _rn_pos << ", body start pos: " << this->_body_start_pos << std::endl;
-						// std::cout << "!!!!!!!!!!request!!!!!!!" << this->_request[fd].substr(0, _rn_pos) << std::endl;
+							_body_vec_start_pos = _rn_pos;
+						}
+						size_t	body_size = this->_request[fd].find("\r\n", _rn_pos);
+						size_t	end_request = this->_request[fd].find("0\r\n\r\n");
+						std::cout << BLUE << "end_request : " << end_request << ", body_size: " << body_size << RESET << std::endl;
+						if (end_request != std::string::npos && body_size != std::string::npos)
+						{
+							
+							if (end_request + 3 == body_size)
+							{
+								std::cout << RED << "body_size is end_request\n" << RESET << std::endl;
+								break ;
+							}
+						}
+
 						if (body_size != std::string::npos && this->_body_vec_size == 0)
 						{
 							std::string	body_size_str = this->_request[fd].substr(_rn_pos,
 								body_size - _rn_pos);
-							if (body_size_str.find("e") != std::string::npos)
-								this->_body_vec_size = calExponent(body_size_str);
-							else
-								this->_body_vec_size = std::atoi(body_size_str.c_str());
+							this->_body_vec_size = hexToDecimal(body_size_str);
+							std::cout << YELLOW << "body vec size: " << _body_vec_size << RESET << std::endl;
+							_body_vec_total_size += this->_body_vec_size;
+							if (_body_vec_total_size > _client_max_body_size && _client_max_body_size != 0)
+								_response.setCode(Payload_Too_Large);
 							this->_body_vec_start_pos = body_size + 2;
-							_rn_pos = _body_vec_start_pos + this->_body_vec_size;
-							std::cout << GREEN << "body vec size: " << this->_body_vec_size << std::endl;
-							std::cout << "body size: " << body_size_str.length() << RESET << std::endl;
-							// std::cout << "body_size_str: " << body_size_str << RESET << std::endl;
-							if (this->_body_vec_size == 0)
-								this->_response.setCode(Bad_Request);
+							_rn_pos = _body_vec_start_pos + this->_body_vec_size + 2;
+						}
+						else if (body_size == std::string::npos)
+						{
+							std::cout << CYAN << "there is no left body size\n" << RESET;
+							break ;
+						}
+						if (this->_request[fd].length() > this->_body_vec_start_pos + this->_body_vec_size &&
+							this->_body_vec_start_pos != 0)
+						{
+							std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
+								this->_body_vec_size);
+							this->_response._body_vec.push_back(_body_element);
+							this->_body_vec_start_pos += this->_body_vec_size;
+							this->_body_vec_size = 0;
 						}
 					}
-					if (this->_request[fd].length() > this->_body_vec_start_pos + this->_body_vec_size &&
-						this->_body_vec_start_pos != 0)
-					{
-						std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
-							this->_body_vec_size);
-						this->_response._body_vec.push_back(_body_element);
-						this->_body_vec_start_pos += this->_body_vec_size;
-						this->_body_vec_size = 0;
-					}
-					std::cout << RED << "body vec start pos: " << this->_body_vec_start_pos;
-					std::cout << ", body vec size: " << this->_body_vec_size;
-					std::cout << "request length: " << this->_request[fd].length() << RESET << std::endl;
-					usleep(100);
+					
+					// if (this->_body_vec_start_pos != 0 && this->_body_vec_size != 0 &&
+					// 	this->_body_vec_size <= this->_request[fd].length() - this->_body_vec_start_pos)
+					// {
+					// 	std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
+					// 			this->_request[fd].length() - this->_body_vec_start_pos);
+					// 	this->_response._body_vec.push_back(_body_element);
+					// 	std::cout << "body vec size: " << _body_vec_size << ", body vec start pos: " << _body_vec_start_pos << std::endl;
+					// 	this->_request_end = 1;
+					// }
 
 					if (this->_request[fd].find("0\r\n\r\n") != std::string::npos &&
 						(this->_body_vec_start_pos == 0 ||
-						(this->_body_vec_start_pos != 0 && this->_body_vec_size > this->_request[fd].length() - this->_body_vec_start_pos)))
+						(this->_body_vec_start_pos != 0 && this->_body_vec_size != 0 &&
+						this->_body_vec_size <= this->_request[fd].length() - this->_body_vec_start_pos)))
 					{
 						this->_request[fd] = this->_request[fd].substr(0, this->_request[fd].length() - 5);
 						if (this->_body_vec_start_pos != 0)
@@ -483,15 +538,13 @@ class Server
 								this->_request[fd].length() - this->_body_vec_start_pos);
 							this->_response._body_vec.push_back(_body_element);
 						}
-						std::cout << "receive file end\n";
+						std::cout << PINK << "receive file end\n" << RESET << std::endl;
 						this->_request_end = 1;
 					}
 					
-					else
-						return ;
-					
 				}
-				std::cout << RED <<  "============request==========\n" << _request[fd] << RESET;
+				if (_request[fd].length() > 100)
+					std::cout << GREEN << "=======request======\n" << _request[fd].substr(0, 100) << "..." << _request[fd].substr(_request[fd].length() - 10, 10) << RESET << std::endl;
 
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
@@ -505,18 +558,31 @@ class Server
 				}
 				else if (_request_end == 1)
 				{
+					std::cout << RED << "#######request end!!!!!\n" << RESET << std::endl;
 					if (this->_body_start_pos != 0 && this->_body_start_pos < this->_request[fd].length())
 					{
-						this->_response._body = this->_request[fd].substr(this->_body_start_pos,
-							this->_request[fd].length() - this->_body_start_pos);
 						if (this->_response._transfer_encoding == "chunked" &&
 							this->_response._body_vec.empty() == false)
 						{
 							for (std::vector<std::string>::iterator it = _response._body_vec.begin();
 								it != _response._body_vec.end(); it++)
+							{
 								this->_response._body += *it;
+								test_body_size += (*it).length();
+							}
+							// if (test_body_size > _client_max_body_size && _client_max_body_size != 0)
+							// 	_response.setCode(Payload_Too_Large);
+							_response._content_length = sizetToStr(test_body_size);
+							std::cout << GREEN << "test body size: " << test_body_size << RESET << std::endl;
+							setCgiEnv();
 						}
-						// std::cout << YELLOW << "=====BODY=====\n" << this->_response._body << RESET << std::endl;
+						else
+						{
+							this->_response._body = this->_request[fd].substr(this->_body_start_pos,
+								this->_request[fd].length() - this->_body_start_pos);
+							if (_response._body.length() > _client_max_body_size)
+								_response.setCode(Payload_Too_Large);
+						}
 					}
 				}
 			}
@@ -526,17 +592,21 @@ class Server
 		{
 			if (_request.find(fd) != _request.end())
 			{
-				if (_response.verify_method(fd, &_response, _request_end) == 1)
-					disconnect_request(fd);
-				if (this->_request_end == 1) 
+				// if (_response.verify_method(fd, &_response, _request_end, _cgi) == 1)
+				// 	disconnect_request(fd);
+				if (this->_request_end == 1 || _response.getCode() == Bad_Request || _response.getCode() == Internal_Server_Error
+					|| _response.getCode() == Payload_Too_Large) 
 					// this->_response.getErrorMap().find(this->_response.getCode()) != this->_response.getErrorMap().end())
 				{
-					std::cout << "verify_method, code :  " <<  _response._code << std::endl;
-					std::cout << RED << "response path : " << _response.getPath() << RESET << std::endl;
-					if (_response._connection == "close")
+					if (_request[fd].length() > 100)
+						std::cout << GREEN << "=======request======\n" << _request[fd].substr(0, 100) << "..." << _request[fd].substr(_request[fd].length() - 10, 10) << RESET << std::endl;
+					int	verify_method_ret;
+					verify_method_ret = _response.verify_method(fd, &_response, _request_end, _cgi);
+					if (verify_method_ret == 1)
 						disconnect_request(fd);
-					else
+					if (verify_method_ret == 2)
 					{
+						// disconnect_request(fd);
 						_request[fd].clear();
 						_request_end = 0;
 						_body_condition = No_Body;
@@ -547,7 +617,46 @@ class Server
 						this->_body_vec_size = 0;
 						this->_body_vec_start_pos = 0;
 						this->_rn_pos = 0;
+						test_body_size = 0;
+						_response._body_vec.clear();
+						this->_cgi.setCgiExist(false);
+						_response.total_response.clear();
+						_response.setRemainSend(false);
+						_client_max_body_size = 0;
+						_response._body_size = 0;
+						_body_vec_total_size = 0;
 					}
+					if (this->_response.getRemainSend() == false)
+					{
+						std::cout << "verify_method, code :  " <<  _response._code << std::endl;
+						std::cout << RED << "response path : " << _response.getPath() << RESET << std::endl;
+						std::cout << CYAN << "body length: " << _response._body.length() << RESET << std::endl;
+					}
+					if (_response._connection == "close")
+						disconnect_request(fd);
+					else if (this->_response.getRemainSend() == false)
+					{
+						std::cout << GREEN << "response has no error so reset values\n" << RESET;
+						_request[fd].clear();
+						_request_end = 0;
+						_body_condition = No_Body;
+						_response.initRequest();
+						_is_check_request_line = 0;
+						_body_start_pos = 0;
+						_body_end = 0;
+						this->_body_vec_size = 0;
+						this->_body_vec_start_pos = 0;
+						this->_rn_pos = 0;
+						test_body_size = 0;
+						_response._body_vec.clear();
+						this->_cgi.setCgiExist(false);
+						_response.total_response.clear();
+						_response.setRemainSend(false);
+						_client_max_body_size = 0;
+						_response._body_size = 0;
+						_body_vec_total_size = 0;
+					}
+					// std::cout << RED << "why server stop????\n" << RESET << std::endl;
 				}
 			}
 		}

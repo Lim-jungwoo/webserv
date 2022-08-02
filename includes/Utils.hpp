@@ -47,7 +47,7 @@ int							compareURIsWithWildcard (std::string URI, std::string request, int mod
 #include <cctype> //isalpha
 #include <cmath>
 
-# define CGI_BUF_SIZE 65536
+# define CGI_BUF_SIZE 100000
 # define LISTEN_BUFFER_SIZE 1024
 # define READ_BUFFER_SIZE	100000
 
@@ -158,6 +158,7 @@ std::string	set_html(const std::string& path, const std::string& lang,
 int	set_error_page(const std::string& errPages, std::map<int, std::string>* errMap);
 
 std::string	intToStr(int code);
+std::string	sizetToStr (size_t code);
 
 void	print_vec(std::vector<std::string> str_vec);
 void	print_set(std::set<std::string> str_set);

@@ -17,17 +17,26 @@ void	Server::change_events(std::vector<struct kevent>& change_list, uintptr_t id
 void	Server::disconnect_request(int request_fd)
 {
 	std::cout << "request disconnected: " << request_fd << std::endl;
+	_request[request_fd].clear();
 	close(request_fd);
 	this->_request.erase(request_fd);
 	this->_request_end = 0;
 	this->_body_condition = No_Body;
-	this->_response.resetRequest();
+	this->_response.initRequest();
 	this->_is_check_request_line = 0;
 	this->_body_start_pos = 0;
 	this->_body_end = 0;
 	this->_body_vec_start_pos = 0;
 	this->_body_vec_size = 0;
 	this->_rn_pos = 0;
+	test_body_size = 0;
+	_response._body_vec.clear();
+	this->_cgi.setCgiExist(false);
+	_response.total_response.clear();
+	_response.setRemainSend(false);
+	_client_max_body_size = 0;
+	_response._body_size = 0;
+	_body_vec_total_size = 0;
 }
 
 void	Server::check_connection(int request_fd)

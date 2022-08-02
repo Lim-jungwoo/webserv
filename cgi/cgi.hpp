@@ -1,7 +1,8 @@
 #ifndef CGI_HPP
 # define CGI_HPP
 
-# include "../response/Response.hpp"
+// # include "../response/Response.hpp"
+# include "../header/ResponseHeader.hpp"
 
 class Cgi
 {
@@ -15,10 +16,15 @@ class Cgi
 		void	setEnv(const std::string& env_key, const std::string& env_value)
 		{ _env[env_key] = env_value; }
 		void	setCgiExist(const int& exist) { _is_exist = exist; }
+		void	setName(const std::string& name) { _name = name; }
+		void	setBody(const std::string& body) { _body = body; }
+
 		int		getCgiExist() { return (_is_exist); }
 		std::map<std::string, std::string>	getEnv() { return (_env); }
+		std::string	getName() { return (_name); }
+		std::string	getBody() { return (_body); }
 
-		std::string	exectueCgi(const std::string& scriptName)
+		std::string	executeCgi(const std::string& scriptName)
 		{//인자로 받은 script를 실행하고 script결과를 리턴한다.
 			pid_t	pid;
 			int		saveStdin;
@@ -58,9 +64,11 @@ class Cgi
 			{//자식 프로세스일 때
 				char* const*	nll = NULL;
 				//입력받는 값이 fdIn으로 들어가도록 만든다..
+				std::cout << PINK << "cgi start\n" << RESET;
 				dup2(fdIn, STDIN_FILENO);
 				//출력되는 값이 fdOut으로 들어가도록 만든다.
 				dup2(fdOut, STDOUT_FILENO);
+				
 				execve(scriptName.c_str(), nll, env);
 				std::cerr << "execve crashed.\n";
 				write(STDOUT_FILENO, "Status: 500\r\n\r\n", 15);
@@ -97,8 +105,10 @@ class Cgi
 			delete[] env;
 
 			if (pid == 0)
-			//자식 프로세스가 제대로 execve를 실행하지 못했을 때 exit으로 프로그램 종료
+			{//자식 프로세스가 제대로 execve를 실행하지 못했을 때 exit으로 프로그램 종료
+				std::cout << "there is error to execute cgi tester so server stop\n";
 				exit(0);
+			}
 			return (newBody);
 		}
 
@@ -191,6 +201,7 @@ class Cgi
 		std::map<std::string, std::string>	_env;
 		std::string							_body;
 		int									_is_exist;
+		std::string							_name;
 		char**	envToChar() const
 		{
 			char	**env = new char*[this->_env.size() + 1];

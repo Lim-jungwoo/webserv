@@ -64,6 +64,7 @@ class RequestHeader : public EntityHeader
 				std::cerr << "request line http version is not 1.0 and not 1.1\n";
 				return (1);
 			}
+			std::cout << BLUE << "request line: " << this->_method << " " << this->_path << " " << this->_http_version << RESET << std::endl;
 			return (0);
 		}
 
@@ -109,6 +110,8 @@ class RequestHeader : public EntityHeader
 					this->_content_encoding = find_header_value(*it);
 				else if (strncmp((*it).c_str(), "Connection:", 11) == 0)
 					this->_connection = find_header_value(*it);
+				else if (strncmp((*it).c_str(), "X-Secret-Header-For-Test:", 25) == 0)
+					this->_x_header = find_header_value(*it);
 				else
 				{//이상한 header값일 때 :(콜론)과 ' '(공백)을 확인하여 에러처리
 				//:(콜론)이 없는 데 ' '(공백)이 있다면 에러, 콜론이 없더라도 공백이 없으면 에러가 아님
@@ -382,6 +385,7 @@ class RequestHeader : public EntityHeader
 		size_t		_body_size;
 		std::string	_root;
 		std::vector<std::string>	_body_vec;
+		std::string	_x_header;
 
 		/*
 		//사용안할 것 같은 것

@@ -4,7 +4,7 @@ LocationBlock::LocationBlock ()
 	: _block(),
 	_mod(NONE),
 	_uri(),
-	_clntSize(READ_BUFFER_SIZE),
+	_clntSize(0),
 	_methods(),
 	_redirect(),
 	_root("."),
@@ -19,7 +19,7 @@ LocationBlock::LocationBlock (std::string block)
 	: _block(block),
 	_mod(NONE),
 	_uri(),
-	_clntSize(READ_BUFFER_SIZE),
+	_clntSize(0),
 	_methods(),
 	_redirect(),
 	_root("."),
@@ -131,7 +131,8 @@ int							LocationBlock::parseClntSize () {
 	if (res.first == false)
 		return (0);
 
-	clntSize = MiBToBits(parseValue(_block, res.second, ";"));
+	// clntSize = MiBToBits(parseValue(_block, res.second, ";"));
+	clntSize = std::atoi(parseValue(_block, res.second, ";").c_str());
 
 	if (clntSize < 0)
 		return (printErr("wrong client max body size (should be positive)"));
@@ -216,17 +217,6 @@ int							LocationBlock::parse () {
 	std::vector<std::string>	locBlocks = splitBlocks(_block, "location ");
 
 	parseModMatch();
-	for (size_t i = 0; i < locBlocks.size(); i++) {
-		addLocationBlock(LocationBlock(locBlocks[i]));
-		_locations[i].parse();
-		
-		std::string	nest_location_uri = this->_locations[i].getURI();
-		// if (nest_location_uri.at(0) == '/')
-		// 	this->_locations[i]._uri = this->_uri + nest_location_uri;
-		// else
-		// 	this->_locations[i]._uri = this->_uri + "/" + nest_location_uri;
-	}
-	
 	parseClntSize();
 	parseMethods();
 	parseRoot();
@@ -234,8 +224,14 @@ int							LocationBlock::parse () {
 	parseIndex();
 	parseCGI();
 
-	this->_is_empty = 0;
-
+	this->_is_empty = false;
+	for (size_t i = 0; i < locBlocks.size(); i++) {
+		addLocationBlock(LocationBlock(locBlocks[i]));
+		_locations[i].parse();
+		if (_locations[i].getRoot() == ".")
+			_locations[i].setRoot(getRoot());
+	}
+	
 	return (0);
 }
 

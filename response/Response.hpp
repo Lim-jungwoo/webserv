@@ -1,7 +1,8 @@
 #ifndef RESPONSE_HPP
 # define RESPONSE_HPP
 
-# include "../header/ResponseHeader.hpp"
+// # include "../header/ResponseHeader.hpp"
+# include "../cgi/cgi.hpp"
 
 class Response : public ResponseHeader
 {
@@ -43,63 +44,116 @@ class Response : public ResponseHeader
 			return (header);
 		}
 
-		int	verify_method(int fd, Response *response, int request_end)
+		int	verify_method(int fd, Response *response, int request_end, Cgi& cgi)
 		{//요청마다 header를 만들어야 하고 에러가 발생했을 때에 errormap을 적절히 불러와야 한다.
 			//request의 method를 확인한다.
-			std::string	total_response;
 			int			error = 0;
 
 			int			code = response->_code;
+			int			ret = 0;
 
 			if (code == Bad_Request || code == Internal_Server_Error || code == Payload_Too_Large)
 			{
 				error = 1;
 				total_response = responseErr(response);
+				ret = 2;
 			}
-
-			if (request_end)
+			else
 			{
-				if (response->getPath() == "/" && response->_method != "GET")
+				if (request_end)
 				{
-					error = 1;
-					response->setCode(Method_Not_Allowed);
-					total_response = responseErr(response);
-				}
-				else
-				{
-					if (response->getPath() == "/" && response->_method == "GET")
-						response->setPath(getRoot() + "/index.html");
-					if (check_allow_method() == 1)
-						total_response = this->getHeader();
-					else if (this->_method == "GET")
-						total_response = this->getMethod(this->_path, fd);
-					else if (this->_method == "HEAD")
-						total_response = this->headMethod(this->_path, fd);
-					else if (this->_method == "POST")
-						total_response = this->postMethod(this->_path, fd, this->_body);
-					else if (this->_method == "PUT")
-						total_response = this->putMethod(this->_path, fd, this->_body);
-					else if (this->_method == "DELETE")
-						total_response = this->deleteMethod(this->_path, fd);
+					if (response->getPath() == "/" && response->_method != "GET")
+					{
+						error = 1;
+						response->setCode(Method_Not_Allowed);
+						total_response = responseErr(response);
+					}
+					else if (getRemainSend() == false)
+					{
+						if (response->getPath() == "/" && response->_method == "GET")
+							response->setPath(getRoot() + "/index.html");
+						if (check_allow_method() == 1)
+							total_response = this->getHeader();
+						else if (this->_method == "GET")
+							total_response = this->getMethod(this->_path, fd);
+						else if (this->_method == "HEAD")
+							total_response = this->headMethod(this->_path, fd);
+						else if (this->_method == "POST")
+							total_response = this->postMethod(this->_path, fd, this->_body, cgi);
+						else if (this->_method == "PUT")
+							total_response = this->putMethod(this->_path, fd, this->_body);
+						else if (this->_method == "DELETE")
+							total_response = this->deleteMethod(this->_path, fd);
 
-					std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
-					if (it != this->_error_html.end())
-						total_response += this->readHtml(it->second);
-					else if (this->_code != Created && this->_code != No_Content && this->_code != OK)
-						total_response += ERROR_HTML;
+						std::map<int, std::string>::iterator	it = this->_error_html.find(this->_code);
+						if (it != this->_error_html.end())
+							total_response += this->readHtml(it->second);
+						else if ((this->_code != Created && this->_code != No_Content && this->_code != OK))
+							total_response += ERROR_HTML;
+					}
 				}
-			}
-			if (total_response != "")
-				std::cout << YELLOW << "#########response########\n" << total_response <<  RESET << std::endl;
-			int	write_size = ::send(fd, total_response.c_str(), total_response.size(), 0);
-			if (error || write_size == -1)
-			{
-				if (!error)
-					std::cerr << "RESPONSE SEND ERROR" << std::endl;
-				return (1);
 			}
 			
-			return (0);
+			if (getRemainSend() == false)
+			{
+				if (total_response != "" && total_response.length() >= 1000)
+					std::cout << YELLOW << "#########response########\n" << total_response.substr(0, 400) << "..." << total_response.substr(total_response.length() - 10, 10) <<  RESET << std::endl;
+				else if (total_response != "")
+					std::cout << YELLOW << "#########response########\n" << total_response <<  RESET << std::endl;
+				if (total_response != "")
+					std::cout << RED << "total response size: " << total_response.length() << RESET << std::endl;
+			}
+			
+			static size_t	send_start_pos = 0;
+			static size_t	total_send_size = 0;
+			if (total_response.length() - send_start_pos >= CGI_BUF_SIZE)
+				// && total_response.find("X-Secret-Header-For-Test:") == std::string::npos)
+			{
+				// std::cout << "send start pos: " << send_start_pos << std::endl;
+				std::string		send_msg = total_response.substr(send_start_pos, CGI_BUF_SIZE);
+				int	write_size = ::send(fd, send_msg.c_str(), CGI_BUF_SIZE, 0);
+				if (send_start_pos == 0)
+					std::cout << RED << "send error msg: " << send_msg.substr(0, 100) << "..." << send_msg.substr(send_msg.length() - 10, 10) << RESET << std::endl;
+				if (error || write_size == -1)
+				{
+					if (!error)
+						std::cerr << "CGI BUF SIZE RESPONSE SEND ERROR" << std::endl;
+					total_response.clear();
+					return (1);
+				}
+				send_start_pos += write_size;
+				total_send_size += write_size;
+				this->_remain_send = true;
+			}
+			else if (this->_remain_send == true)
+			{
+				std::string	send_msg = total_response.substr(send_start_pos, total_response.length() - send_start_pos);
+				int	write_size = ::send(fd, send_msg.c_str(), send_msg.length(), 0);
+				if (write_size == -1)
+				{
+					std::cerr << "REMAIN RESPONSE SEND ERROR" << std::endl;
+					total_response.clear();
+					return (1);
+				}
+				total_send_size += write_size;
+				std::cout << PINK << "send start pos: " << send_start_pos << ", total send size: " << total_send_size << RESET << std::endl;
+				send_start_pos = 0;
+				total_send_size = 0;
+				this->_remain_send = false;
+			}
+			else
+			{
+				int	write_size = ::send(fd, total_response.c_str(), total_response.size(), 0);
+				if (error || write_size == -1)
+				{
+					if (!error)
+						std::cerr << "RESPONSE SEND ERROR" << std::endl;
+					total_response.clear();
+					return (1);
+				}
+			}
+			
+			return (ret);
 		}
 
 		std::string	getMethod(std::string& path, int fd)
@@ -165,37 +219,66 @@ class Response : public ResponseHeader
 			file.close();
 			return (file_content);
 		}
-		std::string	postMethod(const std::string& path, int fd, const std::string& body)
+		std::string	postMethod(const std::string& path, int fd, const std::string& body, Cgi& cgi)
 		{
 			(void)fd;
 			std::ofstream	file;
 			std::string		file_content;
-			if (pathIsFile(path))
+			
+			if (cgi.getCgiExist() == true && getRemainSend() == false)
 			{
-				std::cout << "post file is already exist, so add the content\n";
-				file.open(path.c_str(), std::ofstream::out | std::ofstream::app);
-				if (file.is_open() == false)
+				file_content = cgi.executeCgi(cgi.getName());
+				
+				//Status 값을 HTTP/1.1로 바꿔야 한다.
+				std::string	tmp_http = "HTTP/1.1";
+				file_content.erase(0, 7);
+				file_content.insert(0, tmp_http);
+
+				//Content length, location 추가
+				if (file_content.find("\r\n") != std::string::npos)
 				{
-					std::cerr << "FILE OPEN ERROR\n";
-					this->setCode(Forbidden);
+					size_t insert_pos = file_content.find("\r\n") + 2;
+					file_content.insert(insert_pos, "Content-Length: " + _content_length + "\r\n");
+				}				
+				if (file_content.find("Content-Type:") != std::string::npos)
+				{
+					setHeader();
+					size_t	insert_pos = file_content.find("Content-Type:");
+					insert_pos = file_content.find("\r\n", insert_pos) + 2;
+					file_content.insert(insert_pos, "Date: " + _date + "\r\nLast-Modified: " + _last_modified + "\r\nServer: " + _server + "\r\nTransfer-Encoding: identity\r\n");
 				}
-				file << body;
-				file.close();
-				this->setCode(No_Content);
+				this->setCode(OK);
+				this->_content_type = "text/html";
 			}
-			else
+			else if (cgi.getCgiExist() == false)
 			{
-				file.open(path.c_str(), std::ofstream::out);
-				if (file.is_open() == false)
+				if (pathIsFile(path))
 				{
-					std::cerr << "FILE OPEN ERROR\n";
-					this->setCode(Not_Found);
+					std::cout << "post file is already exist, so add the content\n";
+					file.open(path.c_str(), std::ofstream::out | std::ofstream::app);
+					if (file.is_open() == false)
+					{
+						std::cerr << "FILE OPEN ERROR\n";
+						this->setCode(Forbidden);
+					}
+					file << body;
+					file.close();
+					this->setCode(No_Content);
 				}
-				file << body;
-				file.close();
-				this->setCode(Created);
+				else
+				{
+					file.open(path.c_str(), std::ofstream::out);
+					if (file.is_open() == false)
+					{
+						std::cerr << "FILE OPEN ERROR\n";
+						this->setCode(Not_Found);
+					}
+					file << body;
+					file.close();
+					this->setCode(Created);
+				}
+				file_content = this->getHeader();
 			}
-			file_content = this->getHeader();
 			return (file_content);
 		}
 		std::string	putMethod(const std::string& path, int fd, std::string& body)
@@ -288,8 +371,14 @@ class Response : public ResponseHeader
 			std::cout << RESET;
 		}
 
+		void	setRemainSend(int value) { _remain_send = value; }
+		int		getRemainSend() { return (_remain_send); }
+
+		std::string	total_response;
+
 	private:
-		// int	_code;
+		int	_remain_send;
+		
 };
 
 #endif

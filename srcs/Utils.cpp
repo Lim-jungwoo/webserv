@@ -162,6 +162,14 @@ std::string	intToStr (int code)
 	return (ret.str());
 }
 
+std::string	sizetToStr (size_t code)
+{
+	std::stringstream	ret;
+	ret << code;
+
+	return (ret.str());
+}
+
 int			MiBToBits (std::string size) {
 	if (!isNumber(size.substr(0, size.size() - 1)))
 		return (-1);
@@ -170,7 +178,8 @@ int			MiBToBits (std::string size) {
 }
 
 int				compareURIsWithWildcard(std::string URI, std::string request, int mod) {
-	size_t		pos = URI.find('/', URI.find('/', 0) + 1) + 1;
+	// size_t		pos = URI.find('/', URI.find('/', 0) + 1) + 1;
+	size_t		pos = URI.find('/') + 1;
 	char		start;
 	std::string	temp;
 	std::string	temp2;
@@ -181,29 +190,26 @@ int				compareURIsWithWildcard(std::string URI, std::string request, int mod) {
 			if (temp == &request[1])
 				return (0);
 		}
-
 		if (mod == NONE || mod == PREFERENTIAL) {
 			if (temp.find(&request[1], 0) != std::string::npos)
 				return (0);
 		}
-
 		return (1);
 	}
 
 	start = URI[pos + 1];
 	temp = &URI[pos + 1];
+	if (request.find(start, 0) == std::string::npos)
+		return (1);
 	temp2 = request.substr(request.find(start, 0), request.length() - request.find(start, 0));
-
 	if (mod == EXACT) {
 		if (temp == temp2)
 			return (0);
 	}
-
 	if (mod == NONE || mod == PREFERENTIAL) {
 		if (temp.find(temp2, 0) != std::string::npos)
 			return (0);
 	}
-
 	return (1);
 }
 
