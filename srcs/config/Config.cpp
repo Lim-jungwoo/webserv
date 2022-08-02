@@ -147,29 +147,33 @@ int							Config::initServer(const std::string& conf_file)
 			}
 
 			//server name 초기화
-			this->_server_vec[vec_i]._response.setServer(this->_server_block[i].getName());
-//			std::cout << "server name : " << this->_server_vec[vec_i]._response._server << std::endl;
-
-			//allow method를 초기화
-			this->_server_vec[vec_i]._response.initAllowMethod(this->_server_block[i].getMethods());
-//			std::cout << "allow method : ";
-//			for (std::set<std::string>::iterator it = this->_server_vec[vec_i]._response._allow_method.begin();
-//				it != this->_server_vec[vec_i]._response._allow_method.end(); it++)
-//				std::cout << *it << ", ";
-//			std::cout << std::endl;
-
-			//root를 초기화, location을 고려해야 된다.
-			this->_server_vec[vec_i]._response._root = this->_server_block[i].getRoot();
-//			std::cout << "server root : " << this->_server_vec[vec_i]._response._root << std::endl;
-
-			//error code에 따른 error page초기화
-			if (this->_server_block[i].getErrPages().empty() == 1)
-			{//config 파일에 정해진 error page가 없으면 임의로 초기화시켜준다.
-				this->_server_vec[vec_i]._response.initErrorHtml();
-			}
-			else
+			for (size_t fd = 5; fd <= 7; fd++)
 			{
-				this->_server_vec[vec_i]._response.setErrorHtml(this->_server_block[i].getErrPages());
+				this->_server_vec[vec_i]._response[fd].setServer(this->_server_block[i].getName());
+	//			std::cout << "server name : " << this->_server_vec[vec_i]._response[fd]._server << std::endl;
+
+				//allow method를 초기화
+				this->_server_vec[vec_i]._response[fd].initAllowMethod(this->_server_block[i].getMethods());
+	//			std::cout << "allow method : ";
+	//			for (std::set<std::string>::iterator it = this->_server_vec[vec_i]._response[fd]._allow_method.begin();
+	//				it != this->_server_vec[vec_i]._response[fd]._allow_method.end(); it++)
+	//				std::cout << *it << ", ";
+	//			std::cout << std::endl;
+
+				//root를 초기화, location을 고려해야 된다.
+				this->_server_vec[vec_i]._server_root = this->_server_block[i].getRoot();
+				this->_server_vec[vec_i]._response[fd]._root = this->_server_block[i].getRoot();
+	//			std::cout << "server root : " << this->_server_vec[vec_i]._response[fd]._root << std::endl;
+
+				//error code에 따른 error page초기화
+				if (this->_server_block[i].getErrPages().empty() == 1)
+				{//config 파일에 정해진 error page가 없으면 임의로 초기화시켜준다.
+					this->_server_vec[vec_i]._response[fd].initErrorHtml();
+				}
+				else
+				{
+					this->_server_vec[vec_i]._response[fd].setErrorHtml(this->_server_block[i].getErrPages());
+				}
 			}
 //			print_errmap(this->_server_vec[vec_i]._response._error_html);
 

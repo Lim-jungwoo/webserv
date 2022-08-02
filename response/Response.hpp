@@ -56,6 +56,9 @@ class Response : public ResponseHeader
 			{
 				error = 1;
 				total_response = responseErr(response);
+				std::cout << PINK << "response path: " << response->_path << RESET << std::endl;
+				// std::cout << PINK << "#$#@$#$#total response$#$#$#$$" << total_response << RESET << std::endl;
+				std::cout << BLUE << "total response size: " << total_response.length() << RESET << std::endl;
 				ret = 2;
 			}
 			else
@@ -140,6 +143,7 @@ class Response : public ResponseHeader
 				send_start_pos = 0;
 				total_send_size = 0;
 				this->_remain_send = false;
+				total_response.clear();
 			}
 			else
 			{
@@ -151,6 +155,7 @@ class Response : public ResponseHeader
 					total_response.clear();
 					return (1);
 				}
+				total_response.clear();
 			}
 			
 			return (ret);
