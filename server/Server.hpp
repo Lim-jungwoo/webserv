@@ -477,16 +477,8 @@ class Server
 						}
 						size_t	body_size = this->_request[fd].find("\r\n", _rn_pos);
 						size_t	end_request = this->_request[fd].find("0\r\n\r\n");
+						std::cout << RED << "rn_pos: " << _rn_pos << RESET << std::endl;
 						std::cout << BLUE << "end_request : " << end_request << ", body_size: " << body_size << RESET << std::endl;
-						if (end_request != std::string::npos && body_size != std::string::npos)
-						{
-							
-							if (end_request + 3 == body_size)
-							{
-								std::cout << RED << "body_size is end_request\n" << RESET << std::endl;
-								break ;
-							}
-						}
 
 						if (body_size != std::string::npos && this->_body_vec_size == 0)
 						{
@@ -515,36 +507,23 @@ class Server
 							this->_body_vec_size = 0;
 						}
 					}
-					
-					// if (this->_body_vec_start_pos != 0 && this->_body_vec_size != 0 &&
-					// 	this->_body_vec_size <= this->_request[fd].length() - this->_body_vec_start_pos)
-					// {
-					// 	std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
-					// 			this->_request[fd].length() - this->_body_vec_start_pos);
-					// 	this->_response._body_vec.push_back(_body_element);
-					// 	std::cout << "body vec size: " << _body_vec_size << ", body vec start pos: " << _body_vec_start_pos << std::endl;
-					// 	this->_request_end = 1;
-					// }
 
 					if (this->_request[fd].find("0\r\n\r\n") != std::string::npos &&
 						(this->_body_vec_start_pos == 0 ||
-						(this->_body_vec_start_pos != 0 && this->_body_vec_size != 0 &&
-						this->_body_vec_size <= this->_request[fd].length() - this->_body_vec_start_pos)))
+						(this->_body_vec_start_pos != 0 &&
+						this->_body_vec_size == 0)))
 					{
 						this->_request[fd] = this->_request[fd].substr(0, this->_request[fd].length() - 5);
-						if (this->_body_vec_start_pos != 0)
-						{
-							std::string	_body_element = this->_request[fd].substr(this->_body_vec_start_pos,
-								this->_request[fd].length() - this->_body_vec_start_pos);
-							this->_response._body_vec.push_back(_body_element);
-						}
 						std::cout << PINK << "receive file end\n" << RESET << std::endl;
 						this->_request_end = 1;
 					}
 					
 				}
 				if (_request[fd].length() > 100)
+				{
 					std::cout << GREEN << "=======request======\n" << _request[fd].substr(0, 100) << "..." << _request[fd].substr(_request[fd].length() - 10, 10) << RESET << std::endl;
+					std::cout << YELLOW << "request fd length: " << _request[fd].length() << RESET << std::endl;
+				}
 
 				if (n <= 0)
 				{//read가 에러가 났거나, request가 0을 보내면 request와 연결을 끊는다.
