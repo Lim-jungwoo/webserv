@@ -20,40 +20,45 @@ void	Server::disconnect_request(int request_fd)
 	_request[request_fd].clear();
 	close(request_fd);
 	this->_request.erase(request_fd);
-	this->_request_end = 0;
-	this->_body_condition = No_Body;
-	this->_response.initRequest();
-	this->_is_check_request_line = 0;
-	this->_body_start_pos = 0;
-	this->_body_end = 0;
-	this->_body_vec_start_pos = 0;
-	this->_body_vec_size = 0;
-	this->_rn_pos = 0;
-	test_body_size = 0;
-	_response._body_vec.clear();
+	this->_request_end[request_fd] = 0;
+	this->_body_condition[request_fd] = No_Body;
+	this->_response[request_fd].initRequest();
+	this->_is_check_request_line[request_fd] = 0;
+	this->_body_start_pos[request_fd] = 0;
+	this->_body_end[request_fd] = 0;
+	this->_body_vec_start_pos[request_fd] = 0;
+	this->_body_vec_size[request_fd] = 0;
+	this->_rn_pos[request_fd] = 0;
+	test_body_size[request_fd] = 0;
+	_response[request_fd]._body_vec.clear();
 	this->_cgi.setCgiExist(false);
-	_response.total_response.clear();
-	_response.setRemainSend(false);
+	_response[request_fd].total_response.clear();
+	_response[request_fd].setRemainSend(false);
 	_client_max_body_size = 0;
-	_response._body_size = 0;
-	_body_vec_total_size = 0;
+	_response[request_fd]._body_size = 0;
+	_body_vec_total_size[request_fd] = 0;
+	_response[request_fd]._body.clear();
+	_response[request_fd]._root = _server_root;
 }
 
 void	Server::check_connection(int request_fd)
 {
-	if (this->_response._connection == "close")
+	if (this->_response[request_fd]._connection == "close")
 		this->disconnect_request(request_fd);
 }
 
 int	Server::init_listen(const std::string& host_port)
 {
-	if (this->_response.setListen(host_port) == 1)
-	{
-		std::cerr << "init listen error\n";
-		return (1);
-	}
-	this->_listen.host = this->_response._listen.host;
-	this->_listen.port = this->_response._listen.port;
+	(void)host_port;
+	// if (this->_response.setListen(host_port) == 1)
+	// {
+	// 	std::cerr << "init listen error\n";
+	// 	return (1);
+	// }
+	// this->_listen.host = this->_response._listen.host;
+	// this->_listen.port = this->_response._listen.port;
+	this->_listen.host = (unsigned int)0;
+	this->_listen.port = htons(8000);
 	std::cout << "init listen host : " << this->_listen.host;
 	std::cout << ", port : " << this->_listen.port << std::endl;
 	return (0);
