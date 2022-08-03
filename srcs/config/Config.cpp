@@ -63,7 +63,7 @@ int	Config::serverStart()
 
 		new_events_vec.push_back(new_events);
 		curr_event_vec.push_back(&curr_event);
-		(*it).init_server_member();
+		// (*it).init_server_member();
 		std::cout << YELLOW << "host : " << (*it)._listen.host << ", port : " << (*it)._listen.port;
 		std::cout << " server start!!!!!!\n" << RESET;
 	}
@@ -83,7 +83,6 @@ int	Config::serverStart()
 		time_val.tv_nsec = 0;
 		for (size_t i = 0; i < this->_server_vec.size(); i++, it++)
 		{
-			
 			new_events_vec[i] = kevent(this->_server_vec[i]._kq, &this->_server_vec[i]._change_list[0],
 				this->_server_vec[i]._change_list.size(), this->_server_vec[i]._event_list,
 				LISTEN_BUFFER_SIZE, &time_val);
@@ -122,7 +121,6 @@ int	Config::serverStart()
 
 int							Config::initServer(const std::string& conf_file)
 {
-	//먼저 parsing부터
 	if (parse(conf_file) == 1)
 		return (1);
 
@@ -137,60 +135,25 @@ int							Config::initServer(const std::string& conf_file)
 	size_t	vec_i = 0;
 	for (size_t i = 0; i < _server_block.size(); i++, it++)
 	{
-		for (size_t j = 0; j < _server_block[i].getAddresses().size(); j++, vec_i++) {
-			//먼저 host와 port를 통해서 server의 listen을 초기화
+		for (size_t j = 0; j < _server_block[i].getAddresses().size(); j++, vec_i++)
+		{
 			if (this->_server_vec[vec_i].init_listen(this->_server_block[i].getAddresses()[j]) == 1)
 			{
-//				std::cerr << "host port : " << this->_server_block[i].getAddresses()[j] << " listen error\n";
 				this->_server_vec.erase(it);
 				continue ;
 			}
+			this->_server_vec[vec_i].setServerName(this->_server_block[i].getName());
+			this->_server_vec[vec_i].setServerAllowMethod(this->_server_block[i].getMethods());
+			this->_server_vec[vec_i].setResponseRoot(this->_server_block[i].getRoot());
+			if (this->_server_block[i].getErrPages().empty() == true)
+				this->_server_vec[vec_i].initServerErrPages();
+			else
+				this->_server_vec[vec_i].setServerErrPages(this->_server_block[i].getErrPages());
 
-			//server name 초기화
-			for (size_t fd = 5; fd <= 7; fd++)
-			{
-				this->_server_vec[vec_i]._response[fd].setServer(this->_server_block[i].getName());
-	//			std::cout << "server name : " << this->_server_vec[vec_i]._response[fd]._server << std::endl;
-
-				//allow method를 초기화
-				this->_server_vec[vec_i]._response[fd].initAllowMethod(this->_server_block[i].getMethods());
-	//			std::cout << "allow method : ";
-	//			for (std::set<std::string>::iterator it = this->_server_vec[vec_i]._response[fd]._allow_method.begin();
-	//				it != this->_server_vec[vec_i]._response[fd]._allow_method.end(); it++)
-	//				std::cout << *it << ", ";
-	//			std::cout << std::endl;
-
-				//root를 초기화, location을 고려해야 된다.
-				this->_server_vec[vec_i]._server_root = this->_server_block[i].getRoot();
-				this->_server_vec[vec_i]._response[fd]._root = this->_server_block[i].getRoot();
-	//			std::cout << "server root : " << this->_server_vec[vec_i]._response[fd]._root << std::endl;
-
-				//error code에 따른 error page초기화
-				if (this->_server_block[i].getErrPages().empty() == 1)
-				{//config 파일에 정해진 error page가 없으면 임의로 초기화시켜준다.
-					this->_server_vec[vec_i]._response[fd].initErrorHtml();
-				}
-				else
-				{
-					this->_server_vec[vec_i]._response[fd].setErrorHtml(this->_server_block[i].getErrPages());
-				}
-			}
-//			print_errmap(this->_server_vec[vec_i]._response._error_html);
-
-			//clntsize 초기화
+			this->_server_vec[vec_i]._server_root = this->_server_block[i].getRoot();
 			this->_server_vec[vec_i]._client_max_body_size = this->_server_block[i].getClntSize();
-//			std::cout << "client max body size : " << this->_server_vec[vec_i]._client_max_body_size << std::endl;
-
-			//autoindex를 초기화
 			this->_server_vec[vec_i]._auto_index = this->_server_block[i].getAutoindex();
-//			std::cout << "auto index : " << (this->_server_vec[vec_i]._auto_index == true ? "true" : "false") << std::endl;
-
-			//index를 초기화
 			this->_server_vec[vec_i]._index = this->_server_block[i].getIndex();
-//			std::cout << "index : ";
-//			print_vec(this->_server_vec[vec_i]._index);
-
-			//server block의 location을 server로 넘겨준다
 			for (size_t location_num = 0; location_num < this->_server_block[i].getLocationBlocks().size();
 				location_num++)
 				this->_server_vec[vec_i]._locations.push_back(this->_server_block[i].getLocationBlocks()[location_num]);

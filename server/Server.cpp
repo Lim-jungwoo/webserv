@@ -17,28 +17,9 @@ void	Server::change_events(std::vector<struct kevent>& change_list, uintptr_t id
 void	Server::disconnect_request(int request_fd)
 {
 	std::cout << "request disconnected: " << request_fd << std::endl;
-	_request[request_fd].clear();
+	resetRequest(request_fd);
 	close(request_fd);
 	this->_request.erase(request_fd);
-	this->_request_end[request_fd] = 0;
-	this->_body_condition[request_fd] = No_Body;
-	this->_response[request_fd].initRequest();
-	this->_is_check_request_line[request_fd] = 0;
-	this->_body_start_pos[request_fd] = 0;
-	this->_body_end[request_fd] = 0;
-	this->_body_vec_start_pos[request_fd] = 0;
-	this->_body_vec_size[request_fd] = 0;
-	this->_rn_pos[request_fd] = 0;
-	test_body_size[request_fd] = 0;
-	_response[request_fd]._body_vec.clear();
-	this->_cgi.setCgiExist(false);
-	_response[request_fd].total_response.clear();
-	_response[request_fd].setRemainSend(false);
-	_client_max_body_size = 0;
-	_response[request_fd]._body_size = 0;
-	_body_vec_total_size[request_fd] = 0;
-	_response[request_fd]._body.clear();
-	_response[request_fd]._root = _server_root;
 }
 
 void	Server::check_connection(int request_fd)
@@ -132,7 +113,23 @@ void	Server::request_accept()
 
 	change_events(this->_change_list, request_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
 	change_events(this->_change_list, request_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-	std::cout << "request is readable and writable\n";
 	this->_request[request_socket] = "";
+
+	_response[request_socket].initRequest();
+	_response[request_socket].initPossibleMethod();
+	_response[request_socket].initErrorMap();
+	_body_condition[request_socket] = No_Body;
+	_body_end[request_socket] = 0;
+	_body_start_pos[request_socket] = 0;
+	
+	_response[request_socket].setServer(getServerName());
+	_response[request_socket].initAllowMethod(getServerAllowMethod());
+	_response[request_socket].setRoot(getResponseRoot());
+	_response[request_socket].setErrorHtml(getServerErrPages());
+
+	_response[request_socket].setRemainSend(FALSE);
+	_response[request_socket].setTotalResponse("");
+	_response[request_socket].setTotalSendSize(0);
+	_response[request_socket].setSendStartPos(0);
 }
 

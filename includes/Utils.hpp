@@ -15,6 +15,8 @@
 # define DEFAULT_AUTOINDEX	2
 # define ON				1
 # define OFF			0
+# define TRUE			1
+# define FALSE			0
 
 int							printErr (std::string errMsg);
 std::vector<std::string>	split (std::string str, char delimiter = '\n');
@@ -187,5 +189,6 @@ size_t	calExponent(const std::string& str);
 
 int	checkHex(std::string& hex);
 size_t	hexToDecimal(std::string& hex);
+void	printStr(const std::string& str, const std::string& response);
 
 #endif

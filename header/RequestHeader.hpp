@@ -40,6 +40,8 @@ class RequestHeader : public EntityHeader
 			this->_path = *request_line_it;
 			if (this->_path != "/" && this->_path.at(0) == '/')
 				this->_path = this->_path.substr(1, this->_path.length() - 1);
+			if (this->_path != "/" && this->_path.at(this->_path.length() - 1) == '/')
+				this->_path = this->_path.substr(0, this->_path.length() - 1);
 
 			if (this->_method == "GET" && request_line_vec.size() == 2)
 			{//GET method이고, request_line이 2개의 단어로 이루어져 있다면 HTTP/0.9버전이다.
@@ -56,7 +58,7 @@ class RequestHeader : public EntityHeader
 
 			request_line_it++;
 			this->_http_version = *request_line_it;
-			std::cout << "http version : " << this->_http_version << std::endl;
+			// std::cout << "http version : " << this->_http_version << std::endl;
 			if (this->_http_version == "HTTP/1.0")
 				this->setConnection("close");
 			if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
@@ -64,7 +66,7 @@ class RequestHeader : public EntityHeader
 				std::cerr << "request line http version is not 1.0 and not 1.1\n";
 				return (1);
 			}
-			std::cout << BLUE << "request line: " << this->_method << " " << this->_path << " " << this->_http_version << RESET << std::endl;
+			// std::cout << BLUE << "request line: " << this->_method << " " << this->_path << " " << this->_http_version << RESET << std::endl;
 			return (0);
 		}
 
@@ -163,7 +165,7 @@ class RequestHeader : public EntityHeader
 		{
 			if (this->_http_version == "HTTP/0.9")
 				return (0);
-			std::cout << "host : " << this->_host << std::endl;
+			// std::cout << "host : " << this->_host << std::endl;
 			if (this->_host == "")
 			{
 				std::cerr << "host header is not exist\n";

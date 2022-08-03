@@ -71,7 +71,7 @@ class Response : public ResponseHeader
 						response->setCode(Method_Not_Allowed);
 						total_response = responseErr(response);
 					}
-					else if (getRemainSend() == false)
+					else if (getRemainSend() == FALSE)
 					{
 						if (response->getPath() == "/" && response->_method == "GET")
 							response->setPath(getRoot() + "/index.html");
@@ -97,26 +97,11 @@ class Response : public ResponseHeader
 				}
 			}
 			
-			if (getRemainSend() == false)
+			if (total_response.length() - _send_start_pos >= CGI_BUF_SIZE)
 			{
-				if (total_response != "" && total_response.length() >= 1000)
-					std::cout << YELLOW << "#########response########\n" << total_response.substr(0, 400) << "..." << total_response.substr(total_response.length() - 10, 10) <<  RESET << std::endl;
-				else if (total_response != "")
-					std::cout << YELLOW << "#########response########\n" << total_response <<  RESET << std::endl;
-				if (total_response != "")
-					std::cout << RED << "total response size: " << total_response.length() << RESET << std::endl;
-			}
-			
-			static size_t	send_start_pos = 0;
-			static size_t	total_send_size = 0;
-			if (total_response.length() - send_start_pos >= CGI_BUF_SIZE)
-				// && total_response.find("X-Secret-Header-For-Test:") == std::string::npos)
-			{
-				// std::cout << "send start pos: " << send_start_pos << std::endl;
-				std::string		send_msg = total_response.substr(send_start_pos, CGI_BUF_SIZE);
+				// std::cout << GREEN << "total response size: " << total_response.length() << RESET << std::endl;
+				std::string		send_msg = total_response.substr(_send_start_pos, CGI_BUF_SIZE);
 				int	write_size = ::send(fd, send_msg.c_str(), CGI_BUF_SIZE, 0);
-				if (send_start_pos == 0)
-					std::cout << RED << "send error msg: " << send_msg.substr(0, 100) << "..." << send_msg.substr(send_msg.length() - 10, 10) << RESET << std::endl;
 				if (error || write_size == -1)
 				{
 					if (!error)
@@ -124,13 +109,16 @@ class Response : public ResponseHeader
 					total_response.clear();
 					return (1);
 				}
-				send_start_pos += write_size;
-				total_send_size += write_size;
-				this->_remain_send = true;
+				_send_start_pos += write_size;
+				_total_send_size += write_size;
+				this->_remain_send = TRUE;
 			}
-			else if (this->_remain_send == true)
+			else if (this->_remain_send == TRUE)
 			{
-				std::string	send_msg = total_response.substr(send_start_pos, total_response.length() - send_start_pos);
+				std::string	send_msg = total_response.substr(_send_start_pos, total_response.length() - _send_start_pos);
+				std::cout << YELLOW << "#######request[" << fd << "] !!!!!\n";
+				std::cout << total_response.substr(0, 100) << " ... " << total_response.substr(total_response.length() - 20, 20)<< std::endl;
+				std::cout << "total response size: " << total_response.size() << ", send_msg size: " << send_msg.size() << RESET << std::endl;
 				int	write_size = ::send(fd, send_msg.c_str(), send_msg.length(), 0);
 				if (write_size == -1)
 				{
@@ -138,11 +126,12 @@ class Response : public ResponseHeader
 					total_response.clear();
 					return (1);
 				}
-				total_send_size += write_size;
-				std::cout << PINK << "send start pos: " << send_start_pos << ", total send size: " << total_send_size << RESET << std::endl;
-				send_start_pos = 0;
-				total_send_size = 0;
-				this->_remain_send = false;
+				std::cout << RED << "#######response[" << fd << "] send!!!!!\n" << RESET;
+				_total_send_size += write_size;
+				std::cout << PINK << "send start pos: " << _send_start_pos << ", total send size: " << _total_send_size << RESET << std::endl;
+				_send_start_pos = 0;
+				_total_send_size = 0;
+				this->_remain_send = FALSE;
 				total_response.clear();
 			}
 			else
@@ -166,8 +155,13 @@ class Response : public ResponseHeader
 			std::string			file_content = "";
 			std::ifstream		file;
 			std::stringstream	buffer;
+			std::string			file_path = path;
 			(void)fd;
-			std::cout << "GET METHOD PATH IS " << path << std::endl;
+			// std::cout << "GET METHOD PATH IS " << file_path << std::endl;
+			if (file_path == "YoupiBanane")
+				file_path = "YoupiBanane/index.html";
+			if (compare_end(file_path, "nop") == 0)
+				file_path = "YoupiBanane/nop/youpi.bad_extension";
 			if (compare_end(path, "Yeah") == 0)
 			{
 				std::cout << "path is Yeah so not found\n";
@@ -175,8 +169,8 @@ class Response : public ResponseHeader
 			}
 			else
 			{
-				file.open(path.c_str(), std::ifstream::in);
-				if (file.is_open() == false)
+				file.open(file_path.c_str(), std::ifstream::in);
+				if (file.is_open() == FALSE)
 				{
 					std::cout << "FILE OPEN ERROR\n";
 					this->setCode(Not_Found);
@@ -208,7 +202,7 @@ class Response : public ResponseHeader
 			else
 			{
 				file.open(path.c_str(), std::ifstream::in);
-				if (file.is_open() == false)
+				if (file.is_open() == FALSE)
 				{
 					std::cout << "FILE OPEN ERROR\n";
 					this->setCode(Not_Found);
@@ -230,7 +224,7 @@ class Response : public ResponseHeader
 			std::ofstream	file;
 			std::string		file_content;
 			
-			if (cgi.getCgiExist() == true && getRemainSend() == false)
+			if (cgi.getCgiExist() == TRUE && getRemainSend() == FALSE)
 			{
 				file_content = cgi.executeCgi(cgi.getName());
 				
@@ -255,13 +249,13 @@ class Response : public ResponseHeader
 				this->setCode(OK);
 				this->_content_type = "text/html";
 			}
-			else if (cgi.getCgiExist() == false)
+			else if (cgi.getCgiExist() == FALSE)
 			{
 				if (pathIsFile(path))
 				{
 					std::cout << "post file is already exist, so add the content\n";
 					file.open(path.c_str(), std::ofstream::out | std::ofstream::app);
-					if (file.is_open() == false)
+					if (file.is_open() == FALSE)
 					{
 						std::cerr << "FILE OPEN ERROR\n";
 						this->setCode(Forbidden);
@@ -273,7 +267,7 @@ class Response : public ResponseHeader
 				else
 				{
 					file.open(path.c_str(), std::ofstream::out);
-					if (file.is_open() == false)
+					if (file.is_open() == FALSE)
 					{
 						std::cerr << "FILE OPEN ERROR\n";
 						this->setCode(Not_Found);
@@ -297,7 +291,7 @@ class Response : public ResponseHeader
 			{//file이 이미 존재하고 regular file일 때 파일을 갱신한다.
 				std::cout << "put file is already exist\n";
 				file.open(path.c_str());
-				if (file.is_open() == false)
+				if (file.is_open() == FALSE)
 				{
 					std::cerr << "FILE OPEN ERROR\n";
 					this->setCode(Forbidden);
@@ -310,7 +304,7 @@ class Response : public ResponseHeader
 			else
 			{//file이 존재하지 않거나, file이 regular file이 아닐 때 작동
 				file.open(path.c_str());
-				if (file.is_open() == false)
+				if (file.is_open() == FALSE)
 				{
 					std::cerr << "file open fail\n";
 					this->setCode(Forbidden);
@@ -355,7 +349,7 @@ class Response : public ResponseHeader
 			if (pathIsFile(path))
 			{
 				file.open(path.c_str(), std::ifstream::in);
-				if (file.is_open() == false)
+				if (file.is_open() == FALSE)
 					return (ERROR_HTML);
 				buf << file.rdbuf();
 				file.close();
@@ -377,12 +371,23 @@ class Response : public ResponseHeader
 		}
 
 		void	setRemainSend(int value) { _remain_send = value; }
+		void	setTotalSendSize(size_t size) { _total_send_size = size; }
+		void	setTotalResponse(const std::string& response) { total_response = response; }
+		void	setSendStartPos(const size_t& start_pos) { _send_start_pos = start_pos; }
 		int		getRemainSend() { return (_remain_send); }
+		size_t	getTotalSendSize() { return (_total_send_size); }
+		std::string	getTotalResponse() { return (total_response); }
+		size_t	getSendStartPos() { return (_send_start_pos); }
+
+		void	initResponseValue()
+		{ _remain_send = FALSE; }
 
 		std::string	total_response;
 
 	private:
-		int	_remain_send;
+		int		_remain_send;
+		size_t	_total_send_size;
+		size_t	_send_start_pos;
 		
 };
 

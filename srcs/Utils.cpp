@@ -543,6 +543,19 @@ size_t	hexToDecimal(std::string& hex)
 	return (ret);
 }
 
+void	printStr(const std::string& str, const std::string& response)
+{
+	if (response == "response")
+		std::cout << YELLOW << "===========response=========\n";
+	else if (response == "request")
+		std::cout << GREEN << "===========request==========\n";
+	if (str.length() > 200)
+		std::cout << str.substr(0, 150) << "..." << str.substr(str.length() - 20, 20) << std::endl;
+	else
+		std::cout << str << std::endl;
+	std::cout << "total size: " << str.length() << RESET << std::endl;
+}
+
 // int	main()
 // {
 // 	std::string	str1 = "SHOW1234";
