@@ -30,25 +30,18 @@ void	Server::check_connection(int request_fd)
 
 int	Server::init_listen(const std::string& host_port)
 {
-	(void)host_port;
-	// if (this->_response.setListen(host_port) == 1)
-	// {
-	// 	std::cerr << "init listen error\n";
-	// 	return (1);
-	// }
-	// this->_listen.host = this->_response._listen.host;
-	// this->_listen.port = this->_response._listen.port;
-	this->_listen.host = (unsigned int)0;
-	this->_listen.port = htons(8000);
+	if (setServerListen(host_port) == 1)
+	{
+		std::cerr << "init listen error\n";
+		return (1);
+	}
 	std::cout << "init listen host : " << this->_listen.host;
 	std::cout << ", port : " << this->_listen.port << std::endl;
 	return (0);
 }
 
 int	Server::init_server_socket()
-{//에러가 발생했을 때 에러 메시지를 출력하고 1을 리턴, 정상 작동이면 0을 리턴
-//server socket을 만들고, bind, listen, kqueue를 하고,
-//바로 change_events를 통해 event를 등록한다.
+{
 	int	server_socket = socket(PF_INET, SOCK_STREAM, 0);
 	if (server_socket == -1)
 	{
@@ -88,12 +81,12 @@ int	Server::init_server_socket()
 int	Server::event_error(int fd)
 {
 	if (fd == this->_server_socket)
-	{//server_socket이 에러라면 server를 종료하기 위해 -1을 리턴한다.
+	{
 		std::cerr << "server start but server socket error\n";
 		return (1);
 	}
 	else
-	{//request socket이 에러라면 request의 연결을 끊는다.
+	{
 		std::cerr << "server start but client socket error\n";
 		disconnect_request(fd);
 	}
@@ -104,7 +97,7 @@ void	Server::request_accept()
 {
 	int	request_socket;
 	if ((request_socket = accept(this->_server_socket, NULL, NULL)) == -1)
-	{//accept이 실패했을 때
+	{
 		std::cerr << "server start but request socket accept error\n";
 		return ;
 	}

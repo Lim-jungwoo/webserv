@@ -30,7 +30,7 @@ class Server
 
 		std::string					_server_root;
 		std::string					_server_name;
-		std::vector<std::string>		_server_allow_method;
+		std::vector<std::string>	_server_allow_method;
 		std::string					_response_root;
 		std::map<int, std::string>	_server_error_page;
 		
@@ -83,28 +83,98 @@ class Server
 			setServerErrPages(Internal_Server_Error, INTERNAL_SERVER_ERROR_HTML);
 		}
 
-		std::string	getServerName() { return (_server_name); }
+		std::string					getServerName() { return (_server_name); }
 		std::vector<std::string>	getServerAllowMethod() { return (_server_allow_method); }
-		std::string	getResponseRoot() { return (_response_root); }
+		std::string					getResponseRoot() { return (_response_root); }
 		std::map<int, std::string>	getServerErrPages() { return (_server_error_page); }
+
+		bool	hostToInt(std::string host)
+		{
+			size_t	sep = 0;
+			unsigned int	n;
+			size_t	start = 0;
+			std::string	substr;
+			unsigned int	ret = 0;
+			if (host == "localhost")
+				host = "127.0.0.1";
+			if (isNumber(host) == 1)
+			{
+				ret = std::atoi(host.c_str());
+				this->_listen.host = ret;
+				return (0);
+			}
+			for (int i = 3; i > -1; i--)
+			{
+				sep = host.find_first_of('.', sep);
+				if (i != 0 && sep == std::string::npos)
+				{
+					std::cerr << "host address has not .\n";
+					return (1);
+				}
+				if (i == 0)
+					sep = host.length();
+				substr = host.substr(start, sep - start);
+				if (isNumber(substr) == 0)
+				{
+					std::cerr << "host address is not number\n";
+					return (1);
+				}
+				n = std::atoi(substr.c_str());
+				for (int j = 0; j < i; j++)
+					n *= 256;
+				ret += n;
+				sep++; start = sep;
+			}
+			this->_listen.host = ret;
+			return (0);
+		}
+		
+		int	setServerListen(const std::string& str_host = "")
+		{
+			if (str_host == "")
+			{
+				std::cerr << "host header is not exist\n";
+				return (1);
+			}
+			std::vector<std::string>	host_port;
+			unsigned int				host;
+			int							port;
+			host_port = split(str_host, ':');
+			if (*host_port.begin() == str_host)
+			{
+				this->_listen.port = htons(DEFAULT_PORT);
+				if ((host = hostToInt(str_host)) == 1)
+				{
+					std::cerr << "host has strange value\n";
+					return (1);
+				}
+				this->_listen.host = htonl(host);
+				return (0);
+			}
+			if (isNumber(*(host_port.begin() + 1)) == 0)
+			{
+				std::cerr << "port is not number\n";
+				return (1);
+			}
+			port = std::atoi((*(host_port.begin() + 1)).c_str());
+			this->_listen.port = htons(port);
+
+			if ((host = hostToInt(*host_port.begin())) == 1)
+				return (1);
+			this->_listen.host = htonl(host);
+			return (0);
+		}
 
 		void	setCgiEnv(int fd)
 		{
 			_cgi.setBody(_response[fd]._body);
-			// std::cout << BLUE << "CGI BODY LENGTH: " << _cgi.getBody().length() << std::endl;
-			// _cgi.setEnv("CONTENT_LENGTH", _response[fd].getContentLength());
 			_cgi.setEnv("CONTENT_LENGTH", intToStr(_cgi.getBody().length()));
-			// std::cout << "CGI CONTENT_LENGTH: " << _cgi.getEnv()["CONTENT_LENGTH"] << std::endl;
 			_cgi.setEnv("PATH_INFO", _response[fd]._path);
-			// std::cout << "CGI PATH_INFO: " << _cgi.getEnv()["PATH_INFO"] << std::endl;
 			_cgi.setEnv("SERVER_PORT", "8000");
 			_cgi.setEnv("SERVER_PROTOCOL", "HTTP/1.1");
 			this->_cgi.setEnv("REDIRECT_STATUS", "200");
 			if (_response[fd]._x_header != "")
-			{
 				_cgi.setEnv("HTTP_X_SECRET_HEADER_FOR_TEST", _response[fd]._x_header);
-				// std::cout << RED << "HTTP_X_SECRET_HEADER_FOR_TEST: " << _cgi.getEnv()["X_SECRET_HEADER_FOR_TEST"] << RESET << std::endl;
-			}
 		}
 
 		void	initCgiEnv(int fd)
@@ -202,13 +272,6 @@ class Server
 					ret = i;
 				}
 			}
-
-			// for (std::vector<LocationBlock>::iterator it = locationBlocks.begin();
-			// 	it != locationBlocks.end(); it++)
-				// std::cout << CYAN << "location block path: " << (*it).getPath() << RESET << std::endl;
-			// std::cout << PINK << "ret: "<< ret << ", after select location path : " << locationBlocks[ret].getPath();
-			// std::cout << ", select location uri: " << locationBlocks[ret].getURI() << RESET << std::endl;
-
 			return (locationBlocks[ret]);
 		}
 
@@ -223,18 +286,12 @@ class Server
 				_client_max_body_size = location_block.getClntSize();
 			if (location_block.getMethods().empty() == FALSE)
 				_response[fd].initAllowMethod(location_block.getMethods());
-
-			// std::cout << GREEN << "location block root: " << location_block.getRoot() << RESET << std::endl;
 			if (location_block.getRoot() != ".")
 			{
 				this->_response[fd]._root = location_block.getRoot();
 				size_t	uri_pos = 0;
 				if ((uri_pos = this->_response[fd].getPath().find(location_block.getURI())) != std::string::npos)
-				{
-					std::cout << CYAN << "location uri: " << location_block.getURI() << RESET << std::endl;
 					this->_response[fd].setPath(location_block.getPath());
-					std::cout << RED << "select location and path change : " << this->_response[fd].getPath() << RESET << std::endl;
-				}
 			}
 			if (location_block.getAutoindex() != DEFAULT_AUTOINDEX)
 				_auto_index = location_block.getAutoindex();
@@ -243,7 +300,6 @@ class Server
 			if (location_block.getCGI() != "")
 			{
 				this->_config_cgi = location_block.getCGI();
-				// std::cout << YELLOW << "cgi: " << this->_config_cgi << RESET << std::endl;
 				this->_cgi.setCgiExist(TRUE);
 				this->initCgiEnv(fd);
 			}
@@ -252,7 +308,6 @@ class Server
 		void	event_read(int fd)
 		{
 			_request_end[fd] = 0;
-			// std::cout << "EVENT READ WITH FD [" << fd << "]" << std::endl;
 			int	check_request_line_ret = 0;
 			if (fd == _server_socket)
 				request_accept();
@@ -261,7 +316,7 @@ class Server
 				char	buf[READ_BUFFER_SIZE] = {};
 				int	n;
 				if (_response[fd]._content_length != "" && _body_condition[fd] == Body_Start)
-				{//저장해놓은 content_length만큼만 받도록 한다.
+				{
 					if (_response[fd]._body_size >= _client_max_body_size && _client_max_body_size != 0)
 					{
 						std::cerr << "content length is too big to receive\n";
@@ -468,7 +523,11 @@ class Server
 							this->_response[fd]._body = this->_request[fd].substr(this->_body_start_pos[fd],
 								this->_request[fd].length() - this->_body_start_pos[fd]);
 							if (_response[fd]._body.length() > _client_max_body_size)
+							{
+								std::cout << RED << "response body size: " << _response[fd]._body.length();
+								std::cout << ", client max body size: " << _client_max_body_size << RESET << std::endl;
 								_response[fd].setCode(Payload_Too_Large);
+							}
 						}
 					}
 				}
