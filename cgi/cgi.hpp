@@ -7,7 +7,7 @@
 class Cgi
 {
 	public:
-		Cgi() { this->_body = "body"; }
+		Cgi() : _is_exist(FALSE) { this->_body = "body"; }
 		Cgi(Cgi const& cgi) { (void)cgi; }
 		virtual ~Cgi() { }
 

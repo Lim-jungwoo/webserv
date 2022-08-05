@@ -126,6 +126,14 @@ class Response : public ResponseHeader
 					total_response.clear();
 					return (1);
 				}
+				if (static_cast<int>(send_msg.length()) != write_size)
+				{
+					std::cout << GREEN << "send_msg length: " << send_msg.length() << ", write size: " << write_size << RESET << std::endl;
+					this->_remain_send = TRUE;
+					_send_start_pos += write_size;
+					_total_send_size += write_size;
+					return (0); 
+				}
 				std::cout << RED << "#######response[" << fd << "] send!!!!!\n" << RESET;
 				_total_send_size += write_size;
 				std::cout << PINK << "send start pos: " << _send_start_pos << ", total send size: " << _total_send_size << RESET << std::endl;

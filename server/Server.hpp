@@ -42,7 +42,7 @@ class Server
 		std::string					_config_cgi;
 
 		std::vector<LocationBlock>				_locations;
-		Cgi							_cgi;
+		std::map<int, Cgi>						_cgi;
 
 	public:
 		Server();
@@ -167,28 +167,28 @@ class Server
 
 		void	setCgiEnv(int fd)
 		{
-			_cgi.setBody(_response[fd]._body);
-			_cgi.setEnv("CONTENT_LENGTH", intToStr(_cgi.getBody().length()));
-			_cgi.setEnv("PATH_INFO", _response[fd]._path);
-			_cgi.setEnv("SERVER_PORT", "8000");
-			_cgi.setEnv("SERVER_PROTOCOL", "HTTP/1.1");
-			this->_cgi.setEnv("REDIRECT_STATUS", "200");
+			_cgi[fd].setBody(_response[fd]._body);
+			_cgi[fd].setEnv("CONTENT_LENGTH", intToStr(_cgi[fd].getBody().length()));
+			_cgi[fd].setEnv("PATH_INFO", _response[fd]._path);
+			_cgi[fd].setEnv("SERVER_PORT", "8000");
+			_cgi[fd].setEnv("SERVER_PROTOCOL", "HTTP/1.1");
+			this->_cgi[fd].setEnv("REDIRECT_STATUS", "200");
 			if (_response[fd]._x_header != "")
-				_cgi.setEnv("HTTP_X_SECRET_HEADER_FOR_TEST", _response[fd]._x_header);
+				_cgi[fd].setEnv("HTTP_X_SECRET_HEADER_FOR_TEST", _response[fd]._x_header);
 		}
 
 		void	initCgiEnv(int fd)
 		{
-			this->_cgi.setName(_config_cgi);
+			this->_cgi[fd].setName(_config_cgi);
 			//원하는 status를 지정하여 PHP가 처리할 수 있는 status를 정한다.
 			//php-cgi가 200을 처리할 수 있도록 정했다.
-			this->_cgi.setEnv("REDIRECT_STATUS", "200");
-			this->_cgi.setEnv("CONTENT_LENGTH", this->_response[fd].getContentLength());
-			this->_cgi.setEnv("CONTENT_TYPE", this->_response[fd].getContentType());
-			this->_cgi.setEnv("PATH_INFO", this->_response[fd].getPath());
-			this->_cgi.setEnv("REQUEST_METHOD", this->_response[fd]._method);
-			this->_cgi.setEnv("SERVER_PORT", intToStr(this->_response[fd].getListen().port));
-			this->_cgi.setEnv("SERVER_PROTOCOL", this->_response[fd].getHttpVersion());
+			this->_cgi[fd].setEnv("REDIRECT_STATUS", "200");
+			this->_cgi[fd].setEnv("CONTENT_LENGTH", this->_response[fd].getContentLength());
+			this->_cgi[fd].setEnv("CONTENT_TYPE", this->_response[fd].getContentType());
+			this->_cgi[fd].setEnv("PATH_INFO", this->_response[fd].getPath());
+			this->_cgi[fd].setEnv("REQUEST_METHOD", this->_response[fd]._method);
+			this->_cgi[fd].setEnv("SERVER_PORT", intToStr(this->_response[fd].getListen().port));
+			this->_cgi[fd].setEnv("SERVER_PROTOCOL", this->_response[fd].getHttpVersion());
 		}
 
 		LocationBlock				selectLocationBlock (std::string requestURI, int fd)
@@ -300,7 +300,7 @@ class Server
 			if (location_block.getCGI() != "")
 			{
 				this->_config_cgi = location_block.getCGI();
-				this->_cgi.setCgiExist(TRUE);
+				this->_cgi[fd].setCgiExist(TRUE);
 				this->initCgiEnv(fd);
 			}
 		}
@@ -344,10 +344,10 @@ class Server
 				if (_request[fd].find("\r\n") != std::string::npos &&
 					_is_check_request_line[fd] == 0)
 				{
-					if (_request[fd].at(0) == 'r' && _request[fd].at(1) == '\n')
-						_request[fd] = _request[fd].substr(2, _request[fd].length() - 2);
-					if (_request[fd].at(0) == '\n')
-						_request[fd] = _request[fd].substr(1, _request[fd].length() - 1);
+					// if (_request[fd].at(0) == 'r' && _request[fd].at(1) == '\n')
+					// 	_request[fd] = _request[fd].substr(2, _request[fd].length() - 2);
+					// if (_request[fd].at(0) == '\n')
+					// 	_request[fd] = _request[fd].substr(1, _request[fd].length() - 1);
 					_is_check_request_line[fd] = 1;
 					// std::cout << "check request line\n";
 					
@@ -547,7 +547,7 @@ class Server
 			this->_body_vec_start_pos[fd] = 0;
 			this->_rn_pos[fd] = 0;
 			_response[fd]._body_vec.clear();
-			this->_cgi.setCgiExist(FALSE);
+			this->_cgi[fd].setCgiExist(FALSE);
 			_response[fd].total_response.clear();
 			_response[fd].setRemainSend(FALSE);
 			_client_max_body_size = 0;
@@ -570,7 +570,7 @@ class Server
 					// 	std::cout << GREEN << "=======request======\n" << _request[fd].substr(0, 100) << "..." << _request[fd].substr(_request[fd].length() - 10, 10) << RESET << std::endl;
 					int	verify_method_ret;
 					// std::cout << YELLOW << "#######request[" << fd << "] end!!!!!\n" << RESET;
-					verify_method_ret = _response[fd].verify_method(fd, &_response[fd], _request_end[fd], _cgi);
+					verify_method_ret = _response[fd].verify_method(fd, &_response[fd], _request_end[fd], _cgi[fd]);
 					if (verify_method_ret == 1)
 						disconnect_request(fd);
 					if (verify_method_ret == 2)
